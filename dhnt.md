@@ -15,7 +15,7 @@ It is divided into two categories: vowel in the first column and consonant in th
 |u |v |w |x |y |z |
 
 
-Each character only and alway has one sound. The sound of the consonants follow their leading vowel characters.
+Each character only and always has one sound. The sound of the consonants follows their leading vowel characters in the same group.
 
 |Character|Sound like in English|
 |:-------:|:----------|
@@ -85,8 +85,8 @@ or one consonant followed by one vowel as shown in the following sound table.
 
 In writing, the vowel character following a consonant can be omitted if it is the same as the alphabet sound.
 
-for example: dhnt is equivalent to dahenito in written form as d h n t is da he ni to respectively in the alphabet chart.
-As you may have now noticed, d h n t are the last characters of the first four vowel groups in the alphabet chart.
+for example: dhnt is equivalent to dahenito in written form as d h n t are da he ni to respectively in the alphabet chart.
+As you may have now noticed, d h n t are the last characters of the first four vowel groups in the alphabet chart - _the name of this language_.
 
 ## Numerals
 
