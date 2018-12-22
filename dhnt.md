@@ -2,7 +2,7 @@
 
 ## Alphabet
 
-DHNT includes 26 characters from [UTF-8](https://www.utf8-chartable.de/unicode-utf8-table.pl) in the hex range [61-7a]
+DHNT includes 26 characters from [UTF-8](https://en.wikipedia.org/wiki/UTF-8) in the hex range [0061-007A]
 
 
 a b c d e f g h i j k l m n o p q r s t u v w x y z
