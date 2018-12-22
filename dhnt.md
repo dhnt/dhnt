@@ -2,9 +2,12 @@
 
 ## Alphabet
 
-DHNT only includes 26 characters in the hex range of [61-7a] from [UTF-8](https://www.utf8-chartable.de/unicode-utf8-table.pl) 
+DHNT includes 26 characters from [UTF-8](https://www.utf8-chartable.de/unicode-utf8-table.pl) in the hex range [61-7a]
 
-It is divided into two categories: vowel in the first column and consonant in the rest and divided into five vowel groups as arranged in the following alphabet chart.
+
+a b c d e f g h i j k l m n o p q r s t u v w x y z
+
+It is divided into two categories: vowels (5) in the first column and consonants (21) in the rest and arranged into five vowel groups as shown in the following alphabet table.
 
 |  |  |  |  |  |  | 
 |--|--|--|--|--|--|
@@ -15,7 +18,18 @@ It is divided into two categories: vowel in the first column and consonant in th
 |u |v |w |x |y |z |
 
 
-Each character only and always has one sound. The sound of the consonants follows their leading vowel characters in the same group.
+Each character only and always has one sound; the sound of the consonants follows their leading vowel characters in the same group as shown in the following sound table.
+
+|  |  |  |  |  |  | 
+|--|---|---|---|---|---|
+|a |ba |ca |da |||
+|e |fe |ge |he |||
+|i |ji |ki |li |mi |ni |
+|o |po |qo |ro |so |to |
+|u |vu |wu |xu |yu |zu |
+
+
+The following shows the equivalent sound in English in capital letters in the second column.
 
 |Character|Sound like in English|
 |:-------:|:----------|
@@ -83,10 +97,8 @@ or one consonant followed by one vowel as shown in the following sound table.
 |ya |ye |yi |yo |yu |
 |za |ze |zi |zo |zu |
 
-In writing, the vowel character following a consonant can be omitted if it is the same as the alphabet sound.
+There are 110 syllables in total.
 
-for example: dhnt is equivalent to dahenito in written form as d h n t are da he ni to respectively in the alphabet chart.
-As you may have now noticed, d h n t are the last characters of the first four vowel groups in the alphabet chart - _the name of this language_.
 
 ## Numerals
 
@@ -106,7 +118,7 @@ Decimal numbers are prefixed with ju.
 |0    |juji | juj
 
 The prefix ju may be dropped depending on the context.
-The year of December 18 2018: 
+The date of December 18 2018: 
 aba ahe bajiahe or in contracted form: ab ah bjiah
 
 Binary number or booleans are prefixed with bu.
@@ -119,9 +131,28 @@ Binary number or booleans are prefixed with bu.
 
 ## Grammar
 
+dhnt has 5 vowel characters and 21 consonant characters and a total of 110 syllables.
+
+A word is a sequence of one or more syllables and stress always falls on the second last.
+
+There are no clusters of vowels or consonants. In writing however, syllables can be contracted as follows:
+
+- Consonant character y can be omitted if the consecutive syllables have the same vowel.
+- Vowel character can be omitted if the syllable is the same as the alphabet sound.
+
+For example:
+
+The word _ayaya_ can be shortened to _aaa_
+
+
+_dhnt_ is equivalent to _dahenito_ as d h n t are da he ni to respectively in the alphabet sound table.
+
+As you may have noticed now, d h n t are the last characters of the first four vowel groups - _the name of this language_.
+
+
 ## Vocabulary
 
-Word consists of syllables and stress always falls on the second last.
+*Reserved Word*
 
 |Word    |English|
 |--------|-------|
@@ -132,6 +163,6 @@ Word consists of syllables and stress always falls on the second last.
 
 dahenito zu - the people who speak dhnt
 
-loan word:
+*Loan Word*
 
-Any word in any other languages, natural or constructed, are considered valid word in dhnt after conversion into its 26 character alphabet through romanization or transliteration.
+Words in any other languages - programming, constructed, or natural - can be transformed through transcription, transliteration, or romanization and rewritten in dhnt alphabet.
