@@ -104,7 +104,7 @@ There are 110 syllables in total.
 
 Decimal numbers are prefixed with ju. 
 
-|Digit|Sound|English|
+|Digit|dhnt |English|
 |-----|-----|-------|
 |1    |jua  | one
 |2    |jub  | two
@@ -123,7 +123,7 @@ aba ahe bajiahe or in contracted form: ab ah bjiah
 
 Binary number or booleans are prefixed with bu.
 
-|Boolean|Sound|English|
+|Boolean|dhnt |English|
 |-------|-----|-------|
 |1      |bua  |true, one
 |0      |bub  |false, zero
@@ -131,7 +131,7 @@ Binary number or booleans are prefixed with bu.
 
 Hexadecimal is prefixed with pu.
 
-|Hex|Sound|English|
+|Hex|dhnt |English|
 |---|-----|-------|
 |1  |pua  |one
 |2  |pub  |two
@@ -148,6 +148,7 @@ Hexadecimal is prefixed with pu.
 |D  |pum  |thirteen
 |E  |pun  |fourteen
 |F  |puo  |fifteen
+|0  |pup  |zero
 
 Prefix pu may be omitted depending on the context.
 
@@ -177,7 +178,7 @@ As you may have noticed now, d h n t are the last characters of the first four v
 
 *Reserved Word*
 
-|Word    |English|
+|dhnt    |English|
 |--------|-------|
 |u  | kind
 |bu | binary, boolean
@@ -186,6 +187,23 @@ As you may have noticed now, d h n t are the last characters of the first four v
 |zu | collection, community
 
 dahenito zu - the people who speak dhnt
+
+*Standard Word*
+
+Standard words consist of [Unicode](https://www.unicode.org/charts/) hex encodings.
+
+Examples
+
+|Script|Unicode |dhnt |English|
+|------|--------|-----|-------|
+|!     |21 |pubaa (ba)|exclamation
+|#     |23 |pubc |hash tag
+|$     |24 |pubd |dollar
+|.     |2E |pubn |dot
+|?     |3F |pucao (co) |question
+|@     |40 |pudp | at sign
+||
+|.com ||pubani comi | dot com
 
 *Loan Word*
 
