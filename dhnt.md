@@ -256,11 +256,11 @@ Esperanto can be imported after transliteration per the following:
 |eE |e |
 |fF |f |
 |gG |g |
-|ĝĜ |j |
+|ĝĜ |g |
 |hH |h |
 |ĥĤ |h |
 |iI |i |
-|jJ |y |
+|jJ |j |
 |ĵĴ |j |
 |kK |k |
 |lL |l |
@@ -287,3 +287,6 @@ _Chinese_
 
 Chinese can be written in Pinyin - the standard Chinese romanization system and can be imported as such.
 
+_Latin and Cyrillic Script_
+
+Languages in Latin and Cyrillic script can be imported after transliteration and disregarding capitalization and diacritics per ISO-9.
