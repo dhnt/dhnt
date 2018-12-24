@@ -237,3 +237,53 @@ Examples:
 *Loan Word*
 
 Words in any other languages - programming, constructed, or natural - can be transformed through transcription, transliteration, or romanization and rewritten in dhnt alphabet.
+
+_Programming Languages_
+
+As most programming languages if not all use the same 26 characters, they are considered dhnt dialects.
+
+_Esperanto_
+
+Esperanto can be imported after transliteration per the following:
+
+|Esperanto|dhnt|
+|---------|----|
+|aA |a |
+|bB |b |
+|cC |c |
+|ĉĈ |q |
+|dD |d |
+|eE |e |
+|fF |f |
+|gG |g |
+|ĝĜ |j |
+|hH |h |
+|ĥĤ |h |
+|iI |i |
+|jJ |y |
+|ĵĴ |j |
+|kK |k |
+|lL |l |
+|mM |m |
+|nN |n |
+|oO |o |
+|pP |p |
+|rR |r |
+|sS |s |
+|ŝŜ |x |
+|tT |t |
+|uU |u |
+|ŭŬ |w |
+|vV |v |
+|zZ |z |
+
+
+
+_English_
+
+English alphabet is the same as dhnt and its words can be imported as is after converting upper case letters into lower cases.
+
+_Chinese_
+
+Chinese can be written in Pinyin - the standard Chinese romanization system and can be imported as such.
+
