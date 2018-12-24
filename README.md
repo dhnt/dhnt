@@ -17,7 +17,7 @@ After you have learned dhnt, you can now try to practice.
 
 *Basic Unix Commands*
 
-|Command|Sound|
+|Command|dhnt|
 |-------|-----|
 |bash |basohe
 |cd |cada
@@ -43,8 +43,8 @@ After you have learned dhnt, you can now try to practice.
 
 *The Go Programming Language*
 
-|Keyword|Sound|
-|-------|-----|
+|Go Keyword|dhnt|
+|----------|-----|
 |break |bareaki
 |case |case
 |chan |cahani
@@ -71,6 +71,16 @@ After you have learned dhnt, you can now try to practice.
 |type |toyupe
 |var |varo
 
+
+*English 900*
+
+
+|English|dhnt|alternative|
+|-------|----|-----------|
+|Good morning |goyoda moroninige |good mornng|
+|Hello, Bill |helilo, bilili |hllo, bill|
+|How are you |howu are you |how are you|
+|Fine, thanks |fine, tohanikiso|fine, thanks|
 
 
 
