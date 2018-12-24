@@ -104,18 +104,18 @@ There are 110 syllables in total.
 
 Decimal numbers are prefixed with ju. 
 
-|Digit|Sound|Contracted|
-|-----|-----|----------|
-|1    |jua  | jua
-|2    |juba | jub
-|3    |juca | juc
-|4    |juda | jud
-|5    |jue  | jue
-|6    |jufe | juf
-|7    |juge | jug
-|8    |juhe | juh
-|9    |jui  | jui
-|0    |juji | juj
+|Digit|Sound|English|
+|-----|-----|-------|
+|1    |jua  | one
+|2    |jub  | two
+|3    |juc  | three
+|4    |jud  | four
+|5    |jue  | five
+|6    |juf  | six
+|7    |jug  | seven
+|8    |juh  | eight
+|9    |jui  | nine
+|0    |juj  | zero
 
 The prefix ju may be dropped depending on the context.
 The date of December 18 2018: 
@@ -123,10 +123,33 @@ aba ahe bajiahe or in contracted form: ab ah bjiah
 
 Binary number or booleans are prefixed with bu.
 
-|Boolean|Sound|Contracted|English|
-|-------|-----|----------|-------|
-|1      |bua  |bua       |true   |
-|0      |buba |bub       |false  |
+|Boolean|Sound|English|
+|-------|-----|-------|
+|1      |bua  |true, one
+|0      |bub  |false, zero
+
+
+Hexadecimal is prefixed with pu.
+
+|Hex|Sound|English|
+|---|-----|-------|
+|1  |pua  |one
+|2  |pub  |two
+|3  |puc  |three
+|4  |pud  |four
+|5  |pue  |five
+|6  |puf  |six
+|7  |pug  |seven
+|8  |puh  |eight
+|9  |pui  |nine
+|A  |puj  |ten
+|B  |puk  |eleven
+|C  |pul  |twelve
+|D  |pum  |thirteen
+|E  |pun  |fourteen
+|F  |puo  |fifteen
+
+Prefix pu may be omitted depending on the context.
 
 
 ## Grammar
@@ -156,9 +179,10 @@ As you may have noticed now, d h n t are the last characters of the first four v
 
 |Word    |English|
 |--------|-------|
-|u | kind
+|u  | kind
 |bu | binary, boolean
 |ju | decimal
+|pu | hexadecimal
 |zu | collection, community
 
 dahenito zu - the people who speak dhnt
