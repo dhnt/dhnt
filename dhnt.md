@@ -212,23 +212,26 @@ Any words and symbols in dhnt alphabet that are accepted internationally.
 [Top Level Domain](https://www.icann.org/resources/pages/tlds-2012-02-25-en)
 
 Examples:
+
 |TLD|dhnt|
 |---|----|
-|com|comi
-|org|oroge
+|com|comi |
+|org|oroge |
 
 
 [ISO 3166](https://en.wikipedia.org/wiki/List_of_ISO_3166_country_codes)
 
 Examples:
+
 |Code|dhnt|English|
 |----|----|-------|
-|CN  |cani |China, Chinese
-|ES  |eso  |Spain, Spanish
-|FR  |fero |France, French
-|GB,UK  |geba, uki |Britain, United Kingdom, English
-|US | uso | America, American English
-|RU | ru |Russia, Russian
+|CN  |cani |China, Chinese |
+|ES  |eso  |Spain, Spanish |
+|FR  |fero |France, French |
+|GB,UK  |geba, uki |Britain, United Kingdom, English |
+|US | uso | America, American English |
+|RU | ru |Russia, Russian |
+
 
 
 *Loan Word*
