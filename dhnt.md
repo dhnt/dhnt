@@ -7,7 +7,7 @@ DHNT includes 26 characters from [UTF-8](https://en.wikipedia.org/wiki/UTF-8) in
 
 a b c d e f g h i j k l m n o p q r s t u v w x y z
 
-It is divided into two categories: vowels (5) in the first column and consonants (21) in the rest and arranged into five vowel groups as shown in the following alphabet table.
+It is divided into two categories: vowels (5) in the first column and consonants (21) in the rest of the columns and arranged into five vowel group rows as shown in the following alphabet table.
 
 |  |  |  |  |  |  | 
 |--|--|--|--|--|--|
@@ -152,6 +152,41 @@ Hexadecimal is prefixed with pu.
 
 Prefix pu may be omitted depending on the context.
 
+## Logic
+
+_Unary_
+
+|du|T |F |Note|
+|--|--|--|--|
+|a |F |T |negation
+|b |T |F |identity
+|c |T |T |always true
+|d |F |F |never true
+
+
+_Binary_
+
+|pu|T.T |T.F |F.T |F.F |Note |
+|--|----|----|----|----|-----|
+|a |F |F |F |T |
+|b |F |F |T |F |
+|c |F |F |T |T |
+|d |F |T |F |F |
+|e |F |T |F |T |
+|f |F |T |T |F |
+|g |F |T |T |T |
+|h |T |F |F |F |and
+|i |T |F |F |T |if and only if
+|j |T |F |T |F |
+|k |T |F |T |T |if then
+|l |T |T |F |F |
+|m |T |T |F |T |
+|n |T |T |T |F |or
+|o |T |T |T |T |tautology
+|p |F |F |F |F |contradiction
+
+
+
 
 ## Grammar
 
@@ -159,19 +194,19 @@ dhnt has 5 vowel characters and 21 consonant characters and a total of 110 sylla
 
 A word is a sequence of one or more syllables and stress always falls on the second last.
 
-There are no clusters of vowels or consonants. In writing however, syllables can be contracted as follows:
+There are no clusters of vowels or consonants. In writing however, syllables may be contracted per the following rules:
 
-- Consonant character y can be omitted if the consecutive syllables have the same vowel.
-- Vowel character can be omitted if the syllable is the same as the alphabet sound.
+- Consonant character y between two vowels can be omitted.
+- Vowel character in a consonant-vowel syllable from the alphabet table can be omitted if it is followed by a consonant or is the last in a word.
 
 For example:
 
 The word _ayaya_ can be shortened to _aaa_
 
 
-_dhnt_ is equivalent to _dahenito_ as d h n t are da he ni to respectively in the alphabet sound table.
+_dhnt_ is equivalent to _dahenito_ as d h n t are da he ni to respectively in the alphabet table.
 
-As you may have noticed now, d h n t are the last characters of the first four vowel groups - _the name of this language_.
+As you may have noticed now, d h n t are the last characters of the first four vowel group rows in the alphabet table - _the name of this language_.
 
 
 ## Vocabulary
@@ -180,11 +215,14 @@ As you may have noticed now, d h n t are the last characters of the first four v
 
 |dhnt    |English|
 |--------|-------|
-|u  | kind
+|u  | kind, classification
+|azu | all, any
 |bu | binary, boolean
+|du | logic
 |ju | decimal
-|pu | hexadecimal
-|zu | collection, community
+|pu | hexadecimal, logic
+|zu | collection, community, plural
+
 
 dahenito zu - the people who speak dhnt
 
