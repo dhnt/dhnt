@@ -18,7 +18,7 @@ It is divided into two categories: vowels (5) in the first column and consonants
 |u |v |w |x |y |z |
 
 
-Each character only and always has one sound; the sound of the consonants follows their leading vowel characters in the same group as shown in the following sound table.
+Each character always has one sound only; the sound of the consonants follows their leading vowel characters in the same group as shown in the following sound table.
 
 |  |  |  |  |  |  | 
 |--|---|---|---|---|---|
@@ -152,7 +152,7 @@ Hexadecimal is prefixed with pu.
 
 Prefix pu may be omitted depending on the context.
 
-## Logic
+<!-- ## Logic
 
 _Unary_
 
@@ -186,7 +186,7 @@ _Binary_
 |p |F |F |F |F |contradiction
 
 
-
+ -->
 
 ## Grammar
 
@@ -218,7 +218,6 @@ As you may have noticed now, d h n t are the last characters of the first four v
 |u  | kind, classification
 |azu | all, any
 |bu | binary, boolean
-|du | logic
 |ju | decimal
 |pu | hexadecimal, logic
 |zu | collection, community, plural
@@ -234,11 +233,11 @@ Examples:
 
 |Script|Unicode |dhnt |English|
 |------|--------|-----|-------|
-|!     |21 |pubaa (ba)|exclamation
+|!     |21 |pubaa |exclamation
 |#     |23 |pubc |hash tag
 |$     |24 |pubd |dollar
 |.     |2E |pubn |dot
-|?     |3F |pucao (co) |question
+|?     |3F |pucao |question
 |@     |40 |pudp | at sign
 ||
 |.com ||pubani comi | dot com
@@ -278,7 +277,7 @@ Words in any other languages - programming, constructed, or natural - can be tra
 
 _Programming Languages_
 
-As most programming languages if not all use the same 26 characters, they are considered dhnt dialects.
+As most programming languages use the same 26 characters, they are considered dhnt dialects.
 
 _Esperanto_
 
@@ -319,12 +318,12 @@ Esperanto can be imported after transliteration per the following:
 
 _English_
 
-English alphabet is the same as dhnt and its words can be imported as is after converting upper case letters into lower cases.
+English alphabet is the same as dhnt and its words can be imported as-is after converting upper case letters into lower cases.
 
 _Chinese_
 
-Chinese can be written in Pinyin - the standard Chinese romanization system and can be imported as such.
+Chinese can be written in Pinyin - the standard Chinese romanization system and can be imported as-is.
 
 _Latin and Cyrillic Script_
 
-Languages in Latin and Cyrillic script can be imported after transliteration and disregarding capitalization and diacritics per ISO-9.
+Languages in Latin and Cyrillic script can be imported after transliteration disregarding capitalization and diacritics per ISO-9.
