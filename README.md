@@ -89,7 +89,10 @@ read it; if they want to, they can run the transpiler to check.
 ```go
 import "github.com/dhnt/dhnt/skills"
 
-g, _ := skills.LoadGlossary("path/to/glossary.yaml")
+// The package ships an embedded seed glossary covering the structural
+// keywords and a handful of generic primitives. Layer your own
+// domain glossary on top with Glossary.Merge.
+g, _ := skills.SeedGlossary()
 
 s := skills.Skill{
     Name: "salutoyu",
