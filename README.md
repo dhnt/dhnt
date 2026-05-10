@@ -99,10 +99,11 @@ The `executor:` field signals dispatch:
   `github.com/dhnt/dhnt/skills`. Reserved for the future
   programmatic-skill layer.
 
-`v0.2.0-alpha.1` ships the **daily-use tier** — 12 skills covering
-build / test / review / commit / document. The full ~38-skill
-catalog (adding discover / plan / integrate / release / deploy /
-operate / maintain / onboard) lands in subsequent alphas.
+`v0.2.0-alpha.2` ships **19 skills across 7 phases** —
+discover (3), plan (4), build (4), test (4), review (2),
+commit (1), document (1). The remaining ~19 skills covering
+integrate / release / deploy / operate / maintain / onboard
+land in subsequent alphas.
 
 ### `github.com/dhnt/dhnt/skills` — multilingual skill CNL
 
