@@ -1,0 +1,72 @@
+# Minimal generic seed glossary shipped with the skills package.
+#
+# Each entry's `dhnt` is the canonical machine identifier, derived
+# from the primary English label by the dhnt loan-word rule (see
+# dhnt.EncodeWord) and locked at glossary admission time. The
+# TestGlossary_DhntFormsMatchEncoder property test verifies the
+# field stays in sync with the encoder.
+#
+# This glossary covers only the structural keywords needed by
+# ParseDhnt/LineariseDhnt and a handful of generic primitives /
+# types so the package's own tests and examples can run. Domain
+# extensions (capabilities like git/github, types like SemVer) are
+# out of scope here — consumers add a domain glossary alongside
+# this one and call Glossary.Merge to combine.
+
+entries:
+  # ─── structural keywords ──────────────────────────────────────────
+  - dhnt: sokilili
+    kind: keyword
+    labels:
+      en: [skill]
+      zh: ["技能", jineng]
+
+  - dhnt: sotepo
+    kind: keyword
+    labels:
+      en: [step, action]
+      zh: ["步骤", buzhou, "动作", dongzuo]
+
+  - dhnt: needaso
+    kind: keyword
+    labels:
+      en: [needs, requires]
+      zh: ["需要", xuyao, "依赖", yilai]
+
+  # ─── generic primitives ───────────────────────────────────────────
+  - dhnt: porinito
+    kind: primitive
+    labels:
+      en: [print]
+      zh: ["打印", dayin]
+
+  - dhnt: loge
+    kind: primitive
+    labels:
+      en: [log]
+      zh: ["日志", rizhi]
+
+  - dhnt: foromato
+    kind: primitive
+    labels:
+      en: [format]
+      zh: ["格式化", geshihua]
+
+  # ─── generic types ────────────────────────────────────────────────
+  - dhnt: texuto
+    kind: type
+    labels:
+      en: [text]
+      zh: ["文本", wenben]
+
+  - dhnt: numibero
+    kind: type
+    labels:
+      en: [number]
+      zh: ["数字", shuzi]
+
+  # ─── core capability (foreign atom — same surface in every language) ─
+  - dhnt: core
+    kind: capability
+    labels:
+      all: [core]

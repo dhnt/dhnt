@@ -1,40 +1,168 @@
 # dhnt
 
-dhnt is not created to be just yet another language but rather it is intended to be one that will transform all languages and dialects - programming, constructed, or natural - into one unified language.
+> A constructed interlingua designed to unify all languages —
+> programming, constructed, natural — into a single normalised form.
 
-It is designed to be easy to learn (as easy as in a few minutes) and hard to forget (for the rest of your life) unlike any other languages.
+This repository holds two things:
 
-In summary:
+1. **The dhnt language specification** — see [`dhnt.md`](./dhnt.md).
+2. **The Go reference implementation** — modules under
+   `github.com/dhnt/dhnt` (this directory).
 
-- dhnt takes 26 characters from UTF-8 for its alphabet divided into 5 groups: abcd efgh ijklmn opqrst uvwxyz
-- dhnt is tam-less (tense, aspect, mood) and inflection free.
-- dhnt vocabulary encompasses all words from all other languages after transformation.
+## What is dhnt?
 
-Follow the link to start learning:
-[The DHNT Language Specification](dhnt.md)
+dhnt is built from the 26 lowercase ASCII letters `a–z`, organised
+into five vowel-group rows that drive a CV-only phonotactic rule. The
+language is *tam-less* (no tense, aspect, mood) and inflection-free.
+Loan words from any source language transform deterministically into
+dhnt-conformant strings, which means programming languages,
+constructed languages, and natural languages can all share one
+normalised vocabulary.
 
-Examples:
+A few worked examples:
 
-*Basic Unix Commands*
+| Source         | dhnt          | abbreviated |
+|----------------|---------------|-------------|
+| `bash`         | `basohe`      | `bsh`       |
+| `cd`           | `cada`        | `cd`        |
+| `hello`        | `helilo`      | `hllo`      |
+| `thanks`       | `tohanikiso`  | `thanks`    |
+| `2018` (year)  | `jubajiahe`   | `bjah`      |
 
-|Command|dhnt|abbreviated|
-|-------|----|-----------|
-|bash |basohe |bsh |
-|cd |cada |cd |
-|ls |liso |ls |
-|cp |capo |cp |
-|mv |mivu |mv |
-|rm |romi |rm |
+See [`dhnt.md`](./dhnt.md) for the full specification including the
+alphabet table, syllable rules, contraction rules, numeral encoding
+(decimal `ju`, binary `bu`, hexadecimal `pu`), and the loan-word
+transformation rules for English, Chinese (via Pinyin), Esperanto,
+and Latin/Cyrillic scripts.
 
+## Why the Go reference implementation?
 
-*English*
+A spec without a deterministic implementation drifts. This repository
+ships both — the spec is the authority, the Go module is the
+machine-checkable instance.
 
+The implementation is deliberately minimal: pure-Go, single direct
+dependency (`gopkg.in/yaml.v3` for the glossary loader), no CGO, no
+build tags. It compiles on Go 1.22+ and runs anywhere Go runs.
 
-|English|dhnt|abbreviated|
-|-------|----|-----------|
-|Hello |helilo |hllo |
-|How are you |howu are you |how are you|
-|Fine, thanks |fine, tohanikiso|fine, thanks|
+## Packages
 
+### `github.com/dhnt/dhnt` — language primitives
 
+```go
+import "github.com/dhnt/dhnt"
 
+// Apply the vowel-insertion rule.
+out, _ := dhnt.EncodeWord("hello")          // "helilo"
+out, _  = dhnt.EncodePhrase("how are you")  // "howu are you"
+
+// Validate a candidate dhnt word.
+ok := dhnt.IsCanonical("basohe")            // true
+
+// Round-trip non-negative integers.
+enc := dhnt.EncodeDecimal(2018)             // "jubajiahe"
+n, _ := dhnt.DecodeDecimal(enc)             // 2018
+```
+
+### `github.com/dhnt/dhnt/skills` — multilingual skill CNL
+
+A four-layer pipeline for authoring deterministic skill specifications
+that can be written and read in any natural language:
+
+```
+[Layer 0]  free prose in any natural language    (author-facing)
+   ↓ LLM normaliser  (separable; not in this drop)
+[Layer 1]  glossary-locked CNL in source language
+   ↓ deterministic glossary lookup + dhnt encode
+[Layer 1.5]  dhnt canonical form  (a-z + spaces only)
+   ↓ regular parse
+[Layer 2]  typed AST keyed by dhnt identifiers
+   ↓ interpret + dispatch  (separable)
+[Layer 3]  Wasm leaves + AST orchestrator
+```
+
+Validity is defined by transpilability: a skill is valid iff it
+transpiles cleanly into Layer 1.5. The dhnt encoder *is* the
+validator. Layer 1.5 is purely machine-facing — humans never have to
+read it; if they want to, they can run the transpiler to check.
+
+```go
+import "github.com/dhnt/dhnt/skills"
+
+g, _ := skills.LoadGlossary("path/to/glossary.yaml")
+
+s := skills.Skill{
+    Name: "salutoyu",
+    Caps: []string{"core"},
+    Steps: []skills.Step{{
+        Name:      "feritisitu",
+        Primitive: "porinito",
+        Args:      []skills.Arg{{Name: "value", Value: skills.NewRef("texuto")}},
+    }},
+}
+
+dh,  _ := skills.LineariseDhnt(s)              // a-z + spaces only
+ast, _ := skills.ParseDhnt(dh)                  // back to AST
+en,  _ := skills.LineariseLang(s, g, "en")     // human-readable English
+zh,  _ := skills.LineariseLang(s, g, "zh")     // human-readable Chinese
+```
+
+`examples/release_pipeline` shows the full multi-language roundtrip.
+
+## Quick start
+
+```sh
+go get github.com/dhnt/dhnt@latest
+
+go run github.com/dhnt/dhnt/examples/encoder_basic
+go run github.com/dhnt/dhnt/examples/release_pipeline
+```
+
+Or clone and run the test suite:
+
+```sh
+git clone https://github.com/dhnt/dhnt
+cd dhnt
+go test -race ./...
+```
+
+## Status
+
+**Alpha (`v0.1.x`).** The API may change at minor versions. `v1.0`
+will be reserved for a stability commitment after at least one
+downstream consumer dogfoods the release in production.
+
+The deterministic core ships in this drop:
+
+- dhnt encoder/decoder (CV-syllabic vowel-insertion + ju-prefixed
+  numerals)
+- closed multilingual `Glossary` with bidirectional lookup
+- Layer 2 typed AST
+- Layer 1.5 ↔ AST roundtrip
+- Layer 1 linearisation per language
+
+Out of scope for v0.1.x:
+
+- LLM constrained-decoded slot-filler (Layer 0 → Layer 2)
+- Wasm Component Model leaves (Layer 3)
+- Pinyin tonal disambiguation, ISO-9 Cyrillic transliteration,
+  Esperanto diacritic mapping (English + toneless Pinyin only for now)
+- Agent / tool specification packages built on this machinery
+
+## License
+
+Apache License 2.0. See [`LICENSE`](./LICENSE). The patent grant
+matters for spec-track projects — without it, a future contributor
+with an undisclosed patent could later assert it against users.
+
+## Contributing
+
+Issues and PRs welcome. The spec is authoritative; if implementation
+and spec disagree, the spec wins (file an issue and we'll fix the
+implementation). Keep changes focused and add tests for any new
+behaviour.
+
+For the rationale behind the architecture (why dhnt as a canonical
+machine form, why a closed glossary, why multilingual from day 1),
+see the design notes upstream:
+[ycode/docs/skill-cnl-rationale.md](https://github.com/qiangli/ycode/blob/main/docs/skill-cnl-rationale.md).
