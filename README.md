@@ -64,6 +64,46 @@ enc := dhnt.EncodeDecimal(2018)             // "jubajiahe"
 n, _ := dhnt.DecodeDecimal(enc)             // 2018
 ```
 
+### `github.com/dhnt/dhnt/catalog` — curated SDLC skill catalog
+
+A community-shared, lifecycle-organised catalog of LLM-instruction
+skills any agent harness can adopt. Embedded in the binary via
+`//go:embed`; consumers pay zero filesystem cost.
+
+```go
+import "github.com/dhnt/dhnt/catalog"
+
+for _, s := range catalog.ByPhase("review") {
+    fmt.Println(s.Name, "—", s.Description)
+}
+
+if s, ok := catalog.Lookup("commit"); ok {
+    // s.Body is the markdown instruction the LLM should follow.
+    // s.Executor is one of: markdown, builtin, cnl.
+    runSkill(s)
+}
+```
+
+Skills are organised by SDLC phase: discover, plan, build, test,
+review, commit, integrate, release, deploy, operate, maintain,
+document, onboard. Each entry has YAML frontmatter (name,
+description, phase, executor, aliases) plus a markdown body the
+LLM follows.
+
+The `executor:` field signals dispatch:
+
+- `markdown` (default): hand the body to the LLM as instructions.
+- `builtin`: consumer dispatches to a Go executor it registered
+  under the same name (e.g. ycode's `internal/runtime/builtin/`).
+- `cnl`: dispatch via the typed-AST machinery in
+  `github.com/dhnt/dhnt/skills`. Reserved for the future
+  programmatic-skill layer.
+
+`v0.2.0-alpha.1` ships the **daily-use tier** — 12 skills covering
+build / test / review / commit / document. The full ~38-skill
+catalog (adding discover / plan / integrate / release / deploy /
+operate / maintain / onboard) lands in subsequent alphas.
+
 ### `github.com/dhnt/dhnt/skills` — multilingual skill CNL
 
 A four-layer pipeline for authoring deterministic skill specifications
