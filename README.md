@@ -99,11 +99,14 @@ The `executor:` field signals dispatch:
   `github.com/dhnt/dhnt/skills`. Reserved for the future
   programmatic-skill layer.
 
-`v0.2.0-alpha.2` ships **19 skills across 7 phases** —
-discover (3), plan (4), build (4), test (4), review (2),
-commit (1), document (1). The remaining ~19 skills covering
-integrate / release / deploy / operate / maintain / onboard
-land in subsequent alphas.
+`v0.2.0-alpha.3` ships **42 skills across all 13 lifecycle
+phases** — discover (3), plan (4), build (5), test (4),
+review (3), commit (3), integrate (4), release (3),
+deploy (2), operate (4), maintain (2), document (3),
+onboard (2). The catalog covers the full software-development
+lifecycle from greenfield exploration through to production
+operation and maintenance. Future alphas refine and extend
+this set rather than fill new phases.
 
 ### `github.com/dhnt/dhnt/skills` — multilingual skill CNL
 
