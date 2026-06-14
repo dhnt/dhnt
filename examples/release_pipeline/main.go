@@ -123,6 +123,18 @@ func main() {
 	forged.Valid = true
 	forged.Failed = []string{"sigeneda"}
 	fmt.Printf("  forged receipt (Valid flipped) caught: Consistent=%v\n", forged.Consistent(original))
+
+	// P7 bidirectional: a human edits the English face; ParseLang
+	// re-normalises it straight back to the one canonical identity.
+	back, err := skills.ParseLang(en, g, "en")
+	if err != nil {
+		log.Fatalf("ParseLang(en): %v", err)
+	}
+	backID, err := skills.Identity(back)
+	if err != nil {
+		log.Fatalf("Identity(back): %v", err)
+	}
+	fmt.Printf("\nP7 bidirectional: ParseLang(English) re-normalises to the same identity: %v\n", backID == id)
 }
 
 // seedGlossaryPath locates the seed glossary YAML relative to this
