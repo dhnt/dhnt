@@ -202,6 +202,9 @@ func normaliseSkill(s Skill) Skill {
 	if len(s.Caps) == 0 {
 		s.Caps = nil
 	}
+	if len(s.EffectCap) == 0 {
+		s.EffectCap = nil
+	}
 	if len(s.Contract) == 0 {
 		s.Contract = nil
 	}
@@ -272,8 +275,43 @@ func TestRoundtrip_ContractDefaultOmitted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LineariseDhnt: %v", err)
 	}
-	if strings.Contains(enc, keywordEnsure) {
-		t.Errorf("contract-free skill leaked %q into L1.5:\n%s", keywordEnsure, enc)
+	if strings.Contains(enc, keywordEnsure) || strings.Contains(enc, keywordEffect) {
+		t.Errorf("contract/effect-free skill leaked a keyword into L1.5:\n%s", enc)
+	}
+}
+
+// TestRoundtrip_EffectCap exercises pillar P3: an effect-cap block must
+// linearise to a-z-clean L1.5 with the effect atoms and re-parse to the
+// identical effect set; unknown atoms are rejected.
+func TestRoundtrip_EffectCap(t *testing.T) {
+	s := Skill{
+		Name:      "rilease",
+		EffectCap: []Effect{EffRead, EffWrite},
+		Contract:  []Check{{Predicate: "gereeni"}},
+		Steps:     []Step{{Name: "alile", Primitive: "loge"}},
+	}
+	enc, err := LineariseDhnt(s)
+	if err != nil {
+		t.Fatalf("LineariseDhnt: %v", err)
+	}
+	if err := validateLayer15Charset(enc); err != nil {
+		t.Fatalf("non-Layer-1.5 output: %v\n%s", err, enc)
+	}
+	if !strings.Contains(enc, keywordEffect) || !strings.Contains(enc, "reada") || !strings.Contains(enc, "wurite") {
+		t.Errorf("expected effect block + atoms in L1.5:\n%s", enc)
+	}
+	parsed, err := ParseDhnt(enc)
+	if err != nil {
+		t.Fatalf("ParseDhnt(%q): %v", enc, err)
+	}
+	if !reflect.DeepEqual(normaliseSkill(parsed), normaliseSkill(s)) {
+		t.Errorf("roundtrip mismatch\n want %#v\n  got %#v\n  enc %s",
+			normaliseSkill(s), normaliseSkill(parsed), enc)
+	}
+
+	// unknown effect atom is rejected
+	if _, err := ParseDhnt("sokilili rilease efefecato boguso fini fini"); err == nil {
+		t.Errorf("ParseDhnt accepted unknown effect atom")
 	}
 }
 

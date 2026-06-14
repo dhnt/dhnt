@@ -27,10 +27,11 @@ package skills
 // (effect caps, on-fail policies, nested flow control, intent refs)
 // layer in by adding fields here without breaking the roundtrip.
 type Skill struct {
-	Name     string
-	Caps     []string
-	Contract []Check
-	Steps    []Step
+	Name      string
+	Caps      []string
+	EffectCap []Effect // P3: upper bound on the effects a run may cause
+	Contract  []Check
+	Steps     []Step
 }
 
 // Check is one contract clause (pillar P1): a predicate invoked with

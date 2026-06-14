@@ -39,17 +39,34 @@ entries:
       en: [ensure, require]
       zh: ["确保", quebao]
 
+  - dhnt: efefecato
+    kind: keyword
+    labels:
+      en: [effect, effects]
+      zh: ["副作用", fuzuoyong]
+
+  # ─── effect atoms (closed lattice; pillar P3) ─────────────────────
+  # foreign atoms: dhnt == EncodeWord(all[0]).
+  - { dhnt: reada,      kind: effect, labels: { all: [read] } }
+  - { dhnt: wurite,     kind: effect, labels: { all: [write] } }
+  - { dhnt: neto,       kind: effect, labels: { all: [net] } }
+  - { dhnt: sopenida,   kind: effect, labels: { all: [spend] } }
+  - { dhnt: desotoroyu, kind: effect, labels: { all: [destroy] } }
+  - { dhnt: time,       kind: effect, labels: { all: [time] } }
+
   # ─── predicates (contract checks; pillar P1) ──────────────────────
   # en[0] is a clean a-z word so dhnt == EncodeWord(en[0]); the
   # hyphenated human name is a secondary synonym for lookup.
   - dhnt: gereeni
     kind: predicate
+    effects: [read]
     labels:
       en: [green, tests-green]
       zh: ["测试通过", ceshitongguo]
 
   - dhnt: sigeneda
     kind: predicate
+    effects: [read]
     labels:
       en: [signed, tag-signed]
       zh: ["标签已签名", biaoqianyiqianming]

@@ -101,6 +101,12 @@ func (p *parser) parseSkill() (Skill, error) {
 				return Skill{}, err
 			}
 			skill.Caps = append(skill.Caps, caps...)
+		case keywordEffect:
+			effs, err := p.parseEffectCap()
+			if err != nil {
+				return Skill{}, err
+			}
+			skill.EffectCap = append(skill.EffectCap, effs...)
 		case keywordEnsure:
 			chk, err := p.parseEnsure()
 			if err != nil {
@@ -141,6 +147,37 @@ func (p *parser) parseNeeds() ([]string, error) {
 		return nil, fmt.Errorf("skills: empty needs block")
 	}
 	return caps, nil
+}
+
+// parseEffectCap parses an effect-cap block (pillar P3):
+//
+//	efefecato <effect-atom>+ fini
+//
+// Each atom must be a known effect of the closed lattice; an unknown
+// atom is rejected (the cap is a closed set, not free text).
+func (p *parser) parseEffectCap() ([]Effect, error) {
+	if err := p.expect(keywordEffect); err != nil {
+		return nil, err
+	}
+	var effs []Effect
+	for {
+		tok, ok := p.next()
+		if !ok {
+			return nil, fmt.Errorf("skills: expected %q in effect block", keywordEnd)
+		}
+		if tok == keywordEnd {
+			break
+		}
+		e, ok := effectByDhntAtom(tok)
+		if !ok {
+			return nil, fmt.Errorf("skills: %q is not a known effect atom", tok)
+		}
+		effs = append(effs, e)
+	}
+	if len(effs) == 0 {
+		return nil, fmt.Errorf("skills: empty effect block")
+	}
+	return effs, nil
 }
 
 // parseEnsure parses one contract clause:

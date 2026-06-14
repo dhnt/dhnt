@@ -40,6 +40,10 @@ func main() {
 	original := skills.Skill{
 		Name: "salutoyu",
 		Caps: []string{"core"},
+		// EffectCap is the blast radius (P3): this run may read and
+		// write, but may NOT spend, destroy, or touch the network —
+		// enforceable no matter which executor tier runs the steps.
+		EffectCap: []skills.Effect{skills.EffRead, skills.EffWrite},
 		// Contract is the spine (P1): a run is valid iff both checks
 		// hold, regardless of which executor tier ran the steps.
 		Contract: []skills.Check{

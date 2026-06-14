@@ -24,11 +24,12 @@ import (
 // well-formed dhnt word, so Layer 1.5 has no out-of-band syntax —
 // only [a-z] tokens separated by whitespace.
 const (
-	keywordSkill  = "sokilili" // dhnt of "skill"
-	keywordNeeds  = "needaso"  // dhnt of "needs"
-	keywordEnsure = "enisure"  // dhnt of "ensure" — a contract clause
-	keywordStep   = "sotepo"   // dhnt of "step"
-	keywordEnd    = "fini"     // dhnt of "fin" — block terminator
+	keywordSkill  = "sokilili"  // dhnt of "skill"
+	keywordNeeds  = "needaso"   // dhnt of "needs"
+	keywordEffect = "efefecato" // dhnt of "effect" — effect-cap block
+	keywordEnsure = "enisure"   // dhnt of "ensure" — a contract clause
+	keywordStep   = "sotepo"    // dhnt of "step"
+	keywordEnd    = "fini"      // dhnt of "fin" — block terminator
 )
 
 // LineariseDhnt renders a Skill into Layer 1.5 (dhnt canonical form).
@@ -57,6 +58,21 @@ func LineariseDhnt(s Skill) (string, error) {
 			}
 			b.WriteByte(' ')
 			b.WriteString(cap)
+		}
+		b.WriteByte(' ')
+		b.WriteString(keywordEnd)
+	}
+
+	if len(s.EffectCap) > 0 {
+		b.WriteByte(' ')
+		b.WriteString(keywordEffect)
+		for _, e := range s.EffectCap {
+			atom := e.Dhnt()
+			if atom == "" {
+				return "", fmt.Errorf("skills: effect cap contains invalid effect %d", int(e))
+			}
+			b.WriteByte(' ')
+			b.WriteString(atom)
 		}
 		b.WriteByte(' ')
 		b.WriteString(keywordEnd)
@@ -174,6 +190,15 @@ func LineariseLang(s Skill, g *Glossary, lang string) (string, error) {
 		for _, cap := range s.Caps {
 			b.WriteByte(' ')
 			b.WriteString(resolve(cap))
+		}
+	}
+
+	if len(s.EffectCap) > 0 {
+		b.WriteByte(' ')
+		b.WriteString(resolve(keywordEffect))
+		for _, e := range s.EffectCap {
+			b.WriteByte(' ')
+			b.WriteString(resolve(e.Dhnt()))
 		}
 	}
 

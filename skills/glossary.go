@@ -30,6 +30,9 @@ const (
 	// inside an `enisure` clause and its evaluation yields a dhnt
 	// boolean (bua/bub).
 	KindPredicate EntryKind = "predicate"
+	// KindEffect is one atom of the effect lattice (pillar P3),
+	// usable inside an `efefecato` effect-cap block.
+	KindEffect EntryKind = "effect"
 )
 
 // LangAll is a special label key that means "the same surface form
@@ -46,6 +49,10 @@ type Entry struct {
 	Dhnt   string              `yaml:"dhnt"`
 	Kind   EntryKind           `yaml:"kind"`
 	Labels map[string][]string `yaml:"labels"`
+	// Effects (pillar P3) are the effects a primitive or predicate
+	// entry may cause, declared as lowercase names (read/write/net/
+	// spend/destroy/time). Empty for pure structural/type entries.
+	Effects []Effect `yaml:"effects,omitempty"`
 }
 
 // PrimaryLabel returns the first label registered for the given
