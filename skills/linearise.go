@@ -30,7 +30,22 @@ const (
 	keywordEnsure = "enisure"   // dhnt of "ensure" — a contract clause
 	keywordStep   = "sotepo"    // dhnt of "step"
 	keywordEnd    = "fini"      // dhnt of "fin" — block terminator
+
+	latKeyword = "latitude" // reserved step arg name for the P4 dial
+	latExact   = "exacato"  // dhnt of "exact"
+	latJudge   = "judage"   // dhnt of "judge"
 )
+
+// latAtom maps a Latitude to its Layer 1.5 atom. Only non-default
+// (LatJudge) is ever emitted.
+func latAtom(l Latitude) string {
+	switch l {
+	case LatJudge:
+		return latJudge
+	default:
+		return latExact
+	}
+}
 
 // LineariseDhnt renders a Skill into Layer 1.5 (dhnt canonical form).
 // The output is strictly [a-z] characters and ASCII space. It is the
@@ -119,6 +134,12 @@ func LineariseDhnt(s Skill) (string, error) {
 		b.WriteString(st.Name)
 		b.WriteByte(' ')
 		b.WriteString(st.Primitive)
+		if st.Latitude != LatExact {
+			b.WriteByte(' ')
+			b.WriteString(latKeyword)
+			b.WriteByte(' ')
+			b.WriteString(latAtom(st.Latitude))
+		}
 		for j := range st.Args {
 			a := &st.Args[j]
 			if !dhnt.IsCanonical(a.Name) {
@@ -232,6 +253,12 @@ func LineariseLang(s Skill, g *Glossary, lang string) (string, error) {
 		b.WriteString(resolve(st.Name))
 		b.WriteByte(' ')
 		b.WriteString(resolve(st.Primitive))
+		if st.Latitude != LatExact {
+			b.WriteByte(' ')
+			b.WriteString(resolve(latKeyword))
+			b.WriteByte(' ')
+			b.WriteString(resolve(latAtom(st.Latitude)))
+		}
 		for j := range st.Args {
 			a := &st.Args[j]
 			b.WriteByte(' ')

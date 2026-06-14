@@ -370,15 +370,37 @@ This re-parses (`ParseDhnt`) to the identical AST (roundtrip), hashes to one
 5. **Glossary sync** — every new keyword's `dhnt:` field equals
    `EncodeWord(primary-en-label)` (`TestGlossary_DhntFormsMatchEncoder`).
 
-## 12. Non-goals / staging
+## 12. Implementation status
 
-Specified here; built incrementally afterwards (this RFC is spec-only):
+All eight pillars are now implemented in this package:
 
-- **L0 → L2 normaliser** (constrained-decoded slot-filler) — out of scope, as
-  today. This spec only fixes its output contract (the AST above).
-- **L3 leaf adapter** (Wasm / builtin predicate & primitive bindings) — out of
-  scope; this spec fixes the predicate/effect interface it must honour.
-- Suggested build order: **P1 contract** (`ast.go` + `parse.go` + a roundtrip
-  test) → **P3 effects** → **P5 attestation** → **P7 L1 inverse parser** →
-  **P6 composition resolver**. P0/P2/P4 are doc rules plus tiny helpers.
+| Pillar | Where |
+|---|---|
+| P0 identity | `attest.go` `Identity` |
+| P1 contract | `ast.go` `Check`, `parse.go`/`linearise.go` `enisure` |
+| P2 gradual ladder | §7 (doc rule) + the executor `Env` tiers in `exec.go` |
+| P3 effects | `effect.go`, `Skill.EffectCap`, `efefecato` block |
+| P4 latitude dial | `ast.go` `Latitude`, reserved `latitude` step arg |
+| P5 attestation | `attest.go` `Attestation` / `Attest` / `Consistent` |
+| P6 composition | `library.go` `Library` (deps, closure, effect audit) |
+| P7 bidirectional | `parse_lang.go` `ParseLang` |
+
+**Layer 3 reference executor (`exec.go`).** `Env` binds dhnt
+primitive/predicate ids to real Go implementations; `Run(skill, env,
+tier)` runs the steps, evaluates the contract against real world-state,
+and seals the result into an `Attestation`. `Valid` is computed from the
+contract (P1) and effect cap (P3), never asserted by the executor. See
+`examples/contract_run`: one skill, three executor tiers (diligent /
+lazy / rogue), one verdict each — convergence enforced, not hoped for.
+
+## 13. Non-goals / still out of scope
+
+- **L0 → L2 normaliser** (the constrained-decoded slot-filler that turns
+  free prose into the AST). This spec fixes its output contract (the AST);
+  building it is a separate effort that needs a model in the loop.
+- **A Wasm leaf adapter.** `exec.go` proves the leaf *interface* with
+  native Go bindings; a sandboxed Wasm backend that *enforces* (not just
+  detects) the effect cap before a side effect lands is future work.
+- **A wire/storage format** for the content-addressed library (P6 is an
+  in-memory graph today).
 ```

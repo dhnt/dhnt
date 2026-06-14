@@ -157,7 +157,7 @@ func (p *langParser) parse() (Skill, error) {
 			if !ok || isLangKeyword(pred) || !dhnt.IsCanonical(pred) {
 				return Skill{}, fmt.Errorf("skills: ensure expects a predicate")
 			}
-			args, err := p.collectArgs()
+			_, args, err := p.collectArgs()
 			if err != nil {
 				return Skill{}, err
 			}
@@ -172,11 +172,11 @@ func (p *langParser) parse() (Skill, error) {
 			if !ok || isLangKeyword(prim) || !dhnt.IsCanonical(prim) {
 				return Skill{}, fmt.Errorf("skills: step %q expects a primitive", nm)
 			}
-			args, err := p.collectArgs()
+			lat, args, err := p.collectArgs()
 			if err != nil {
 				return Skill{}, err
 			}
-			s.Steps = append(s.Steps, Step{Name: nm, Primitive: prim, Args: args})
+			s.Steps = append(s.Steps, Step{Name: nm, Primitive: prim, Latitude: lat, Args: args})
 		default:
 			return Skill{}, fmt.Errorf("skills: unexpected token %q in Layer 1 body", kw)
 		}
@@ -199,29 +199,46 @@ func (p *langParser) collectIdents() []string {
 	return out
 }
 
-// collectArgs consumes (name, value) pairs until the next keyword or
-// end-of-input.
-func (p *langParser) collectArgs() ([]Arg, error) {
+// collectArgs consumes an optional leading `latitude <atom>` dial
+// followed by (name, value) pairs, until the next keyword or
+// end-of-input. The returned Latitude defaults to LatExact.
+func (p *langParser) collectArgs() (Latitude, []Arg, error) {
+	lat := LatExact
 	var args []Arg
+	first := true
 	for {
 		name, ok := p.peek()
 		if !ok || isLangKeyword(name) {
 			break
 		}
 		p.pos++
+		if first && name == latKeyword {
+			first = false
+			atom, ok := p.next()
+			if !ok || isLangKeyword(atom) {
+				return 0, nil, fmt.Errorf("skills: latitude has no value")
+			}
+			lv, err := parseLatitudeAtom(atom)
+			if err != nil {
+				return 0, nil, err
+			}
+			lat = lv
+			continue
+		}
+		first = false
 		if !dhnt.IsCanonical(name) {
-			return nil, fmt.Errorf("skills: arg name %q is not canonical dhnt", name)
+			return 0, nil, fmt.Errorf("skills: arg name %q is not canonical dhnt", name)
 		}
 		valTok, ok := p.peek()
 		if !ok || isLangKeyword(valTok) {
-			return nil, fmt.Errorf("skills: arg %q has no value", name)
+			return 0, nil, fmt.Errorf("skills: arg %q has no value", name)
 		}
 		p.pos++
 		val, err := parseValue(valTok)
 		if err != nil {
-			return nil, fmt.Errorf("skills: arg %q: %w", name, err)
+			return 0, nil, fmt.Errorf("skills: arg %q: %w", name, err)
 		}
 		args = append(args, Arg{Name: name, Value: val})
 	}
-	return args, nil
+	return lat, args, nil
 }

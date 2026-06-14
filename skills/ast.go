@@ -50,8 +50,21 @@ type Check struct {
 type Step struct {
 	Name      string
 	Primitive string
+	Latitude  Latitude // P4: how much freedom the executor has for this step
 	Args      []Arg
 }
+
+// Latitude is the determinism dial for a step (pillar P4): how much
+// freedom an executor has in carrying it out. LatExact is the default
+// (a deterministic, code-like leaf); LatJudge marks a step whose
+// implementation is a bounded judgement call. Default LatExact is
+// omitted from Layer 1.5, so pre-P4 skills are byte-identical.
+type Latitude int
+
+const (
+	LatExact Latitude = iota // deterministic; run verbatim
+	LatJudge                 // bounded judgement permitted
+)
 
 // Arg is a single name=value binding inside a primitive call. The
 // name must be a dhnt-canonical glossary identifier; the value is an

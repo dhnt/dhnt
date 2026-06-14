@@ -45,6 +45,23 @@ entries:
       en: [effect, effects]
       zh: ["副作用", fuzuoyong]
 
+  # ─── latitude dial (pillar P4) ────────────────────────────────────
+  - dhnt: latitude
+    kind: keyword
+    labels:
+      en: [latitude]
+      zh: ["自由度", ziyoudu]
+  - dhnt: exacato
+    kind: keyword
+    labels:
+      en: [exact]
+      zh: ["精确", jingque]
+  - dhnt: judage
+    kind: keyword
+    labels:
+      en: [judge]
+      zh: ["判断", panduan]
+
   # ─── effect atoms (closed lattice; pillar P3) ─────────────────────
   # foreign atoms: dhnt == EncodeWord(all[0]).
   - { dhnt: reada,      kind: effect, labels: { all: [read] } }

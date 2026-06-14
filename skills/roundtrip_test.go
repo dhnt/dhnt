@@ -315,6 +315,53 @@ func TestRoundtrip_EffectCap(t *testing.T) {
 	}
 }
 
+// TestRoundtrip_Latitude exercises pillar P4: a non-default latitude
+// round-trips through L1.5 and through every language projection, while
+// a default-latitude step stays byte-identical (no `latitude` token).
+func TestRoundtrip_Latitude(t *testing.T) {
+	g := loadSeedGlossary(t)
+	s := Skill{
+		Name: "rilease",
+		Steps: []Step{
+			{Name: "alile", Primitive: "loge", Latitude: LatJudge,
+				Args: []Arg{{Name: "numibero", Value: NewNumber(7)}}},
+			{Name: "balile", Primitive: "porinito"}, // default LatExact
+		},
+	}
+	enc, err := LineariseDhnt(s)
+	if err != nil {
+		t.Fatalf("LineariseDhnt: %v", err)
+	}
+	if !strings.Contains(enc, latKeyword+" "+latJudge) {
+		t.Errorf("expected latitude marker in L1.5:\n%s", enc)
+	}
+	// the default-latitude step must not emit a latitude token of its own
+	if strings.Count(enc, latKeyword) != 1 {
+		t.Errorf("default latitude leaked into L1.5:\n%s", enc)
+	}
+	parsed, err := ParseDhnt(enc)
+	if err != nil {
+		t.Fatalf("ParseDhnt: %v", err)
+	}
+	if !reflect.DeepEqual(normaliseSkill(parsed), normaliseSkill(s)) {
+		t.Errorf("L1.5 latitude roundtrip mismatch\n want %#v\n got %#v", s, parsed)
+	}
+	for _, lang := range []string{"en", "zh"} {
+		l1, err := LineariseLang(s, g, lang)
+		if err != nil {
+			t.Fatalf("LineariseLang(%s): %v", lang, err)
+		}
+		got, err := ParseLang(l1, g, lang)
+		if err != nil {
+			t.Fatalf("ParseLang(%s): %v", lang, err)
+		}
+		if !reflect.DeepEqual(normaliseSkill(got), normaliseSkill(s)) {
+			t.Errorf("%s latitude roundtrip mismatch\n want %#v\n got %#v\n l1 %q",
+				lang, normaliseSkill(s), normaliseSkill(got), l1)
+		}
+	}
+}
+
 // TestLineariseLang_Contract checks the contract projects into per-
 // language surface forms (pillar P7).
 func TestLineariseLang_Contract(t *testing.T) {

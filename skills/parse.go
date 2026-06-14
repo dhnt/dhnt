@@ -180,6 +180,18 @@ func (p *parser) parseEffectCap() ([]Effect, error) {
 	return effs, nil
 }
 
+// parseLatitudeAtom maps a Layer 1.5 latitude atom to a Latitude.
+func parseLatitudeAtom(tok string) (Latitude, error) {
+	switch tok {
+	case latExact:
+		return LatExact, nil
+	case latJudge:
+		return LatJudge, nil
+	default:
+		return 0, fmt.Errorf("unknown latitude %q", tok)
+	}
+}
+
 // parseEnsure parses one contract clause:
 //
 //	enisure <predicate> (<arg-name> <value>)* fini
@@ -242,6 +254,7 @@ func (p *parser) parseStep() (Step, error) {
 		return Step{}, fmt.Errorf("skills: step %q primitive %q is not canonical dhnt", name, primitive)
 	}
 	step := Step{Name: name, Primitive: primitive}
+	first := true
 	for {
 		tok, ok := p.next()
 		if !ok {
@@ -250,6 +263,22 @@ func (p *parser) parseStep() (Step, error) {
 		if tok == keywordEnd {
 			break
 		}
+		// A leading `latitude <atom>` sets the P4 dial (it is not a
+		// regular arg). It only appears first, when non-default.
+		if first && tok == latKeyword {
+			first = false
+			atom, ok := p.next()
+			if !ok {
+				return Step{}, fmt.Errorf("skills: step %q latitude has no value", name)
+			}
+			lat, err := parseLatitudeAtom(atom)
+			if err != nil {
+				return Step{}, fmt.Errorf("skills: step %q: %w", name, err)
+			}
+			step.Latitude = lat
+			continue
+		}
+		first = false
 		// argument: this token is the arg name; the next token is the value.
 		argName := tok
 		if !dhnt.IsCanonical(argName) {
