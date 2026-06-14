@@ -10,6 +10,7 @@ package tui_test
 
 import (
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -68,6 +69,79 @@ func TestDrive_RealPTY(t *testing.T) {
 	}
 	if !att.Consistent(driveSkill()) {
 		t.Errorf("attestation inconsistent")
+	}
+}
+
+// branchSkill: spawn → expect READY → send MARKER → expect it → then a
+// branch: if MARKER was seen, send TOOK_THEN, else send TOOK_ELSE →
+// expect either → quit. One dhnt skill that reacts to what the tool
+// showed (the expect-with-alternatives idiom).
+func branchSkill() skills.Skill {
+	return skills.Skill{
+		Name:      "darive",
+		EffectCap: []skills.Effect{skills.EffRead, skills.EffWrite, skills.EffTime},
+		Steps: []skills.Step{
+			{Name: "sa", Primitive: tui.PrimSpawn},
+			{Name: "se", Primitive: tui.PrimExpect, Args: ref("readayu")},
+			{Name: "si", Primitive: tui.PrimSend, Args: ref("iniputo")},
+			{Name: "so", Primitive: tui.PrimExpect, Args: ref("resulito")},
+			{Branch: &skills.Branch{
+				Cond: skills.Check{Predicate: tui.PredSeen, Args: ref("marokero")},
+				Then: []skills.Step{{Name: "ta", Primitive: tui.PrimSend, Args: ref("conifiromi")}},
+				Else: []skills.Step{{Name: "te", Primitive: tui.PrimSend, Args: ref("sokipopeda")}},
+			}},
+			{Name: "ti", Primitive: tui.PrimExpect, Args: ref("dialo")},
+			{Name: "to", Primitive: tui.PrimQuit},
+		},
+		Contract: []skills.Check{{Predicate: tui.PredClean}},
+	}
+}
+
+func TestDrive_BranchReaction(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY driver is unix-only")
+	}
+	base := func(markerPat string) tui.Spec {
+		return tui.Spec{
+			Argv: []string{"sh"},
+			Patterns: map[string]string{
+				"readayu":  "",
+				"resulito": "MARKER",
+				"marokero": markerPat,
+				"dialo":    "TOOK_(THEN|ELSE)",
+			},
+			Inputs: map[string]string{
+				"iniputo":    "echo MARKER\n",
+				"conifiromi": "echo TOOK_THEN\n",
+				"sokipopeda": "echo TOOK_ELSE\n",
+			},
+			Quit:    "exit\n",
+			Timeout: 4 * time.Second,
+		}
+	}
+	run := func(t *testing.T, markerPat string) string {
+		env, sess, err := tui.NewEnv(base(markerPat))
+		if err != nil {
+			t.Fatalf("NewEnv: %v", err)
+		}
+		defer sess.Close()
+		att, err := skills.Run(branchSkill(), env, "sh-driver")
+		if err != nil {
+			t.Fatalf("Run: %v\noutput:\n%s", err, sess.Output())
+		}
+		if !att.Valid {
+			t.Errorf("expected Valid; failed=%v output=%q", att.Failed, sess.Output())
+		}
+		return sess.Output()
+	}
+
+	// MARKER is present in the output → the THEN arm runs.
+	if out := run(t, "MARKER"); !strings.Contains(out, "TOOK_THEN") || strings.Contains(out, "TOOK_ELSE") {
+		t.Errorf("then-arm not taken; output=%q", out)
+	}
+	// A pattern that never appears → the ELSE arm runs.
+	if out := run(t, "WILL_NOT_APPEAR"); !strings.Contains(out, "TOOK_ELSE") || strings.Contains(out, "TOOK_THEN") {
+		t.Errorf("else-arm not taken; output=%q", out)
 	}
 }
 

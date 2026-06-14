@@ -45,6 +45,18 @@ entries:
       en: [effect, effects]
       zh: ["副作用", fuzuoyong]
 
+  # ─── flow control (branches; playbook) ────────────────────────────
+  - dhnt: wuheni
+    kind: keyword
+    labels:
+      en: [when, if]
+      zh: ["当", dang]
+  - dhnt: elise
+    kind: keyword
+    labels:
+      en: [else, otherwise]
+      zh: ["否则", fouze]
+
   # ─── latitude dial (pillar P4) ────────────────────────────────────
   - dhnt: latitude
     kind: keyword

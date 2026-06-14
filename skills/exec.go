@@ -38,17 +38,8 @@ type Env struct {
 func Run(s Skill, env Env, tier string) (Attestation, error) {
 	var observed []Effect
 
-	for i := range s.Steps {
-		st := &s.Steps[i]
-		fn, ok := env.Primitives[st.Primitive]
-		if !ok {
-			return Attestation{}, fmt.Errorf("skills: no binding for primitive %q (step %q)", st.Primitive, st.Name)
-		}
-		effs, err := fn(st.Args)
-		if err != nil {
-			return Attestation{}, fmt.Errorf("skills: step %q (%s): %w", st.Name, st.Primitive, err)
-		}
-		observed = append(observed, effs...)
+	if err := runSteps(s.Steps, env, &observed); err != nil {
+		return Attestation{}, err
 	}
 
 	results := make(map[string]bool, len(s.Contract))
@@ -67,4 +58,42 @@ func Run(s Skill, env Env, tier string) (Attestation, error) {
 	}
 
 	return Attest(s, tier, results, observed, "")
+}
+
+// runSteps executes a step list, recursing into branches. A branch
+// evaluates its condition predicate and runs the Then or Else arm.
+func runSteps(steps []Step, env Env, observed *[]Effect) error {
+	for i := range steps {
+		st := &steps[i]
+		if st.Branch != nil {
+			pred := st.Branch.Cond.Predicate
+			fn, ok := env.Predicates[pred]
+			if !ok {
+				return fmt.Errorf("skills: no binding for branch condition %q", pred)
+			}
+			took, effs, err := fn(st.Branch.Cond.Args)
+			if err != nil {
+				return fmt.Errorf("skills: branch %q: %w", pred, err)
+			}
+			*observed = append(*observed, effs...)
+			arm := st.Branch.Else
+			if took {
+				arm = st.Branch.Then
+			}
+			if err := runSteps(arm, env, observed); err != nil {
+				return err
+			}
+			continue
+		}
+		fn, ok := env.Primitives[st.Primitive]
+		if !ok {
+			return fmt.Errorf("skills: no binding for primitive %q (step %q)", st.Primitive, st.Name)
+		}
+		effs, err := fn(st.Args)
+		if err != nil {
+			return fmt.Errorf("skills: step %q (%s): %w", st.Name, st.Primitive, err)
+		}
+		*observed = append(*observed, effs...)
+	}
+	return nil
 }

@@ -52,6 +52,19 @@ type Step struct {
 	Primitive string
 	Latitude  Latitude // P4: how much freedom the executor has for this step
 	Args      []Arg
+	Branch    *Branch // flow control: if set, this is a conditional, not a leaf call
+}
+
+// Branch is a conditional in the step body (flow control / playbook): if
+// Cond evaluates to bua the Then steps run, otherwise the Else steps.
+// Branches nest. A Step is either a leaf primitive call or a Branch,
+// never both (when Branch is set, Primitive/Args/Latitude are unused).
+// This is what turns a runbook (linear steps) into a playbook (steps +
+// decisions) while keeping the contract as the spine.
+type Branch struct {
+	Cond Check
+	Then []Step
+	Else []Step
 }
 
 // Latitude is the determinism dial for a step (pillar P4): how much

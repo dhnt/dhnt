@@ -86,6 +86,9 @@ var langKeyword = map[string]bool{
 	keywordEffect: true,
 	keywordEnsure: true,
 	keywordStep:   true,
+	keywordWhen:   true,
+	keywordElse:   true,
+	keywordEnd:    true, // appears in Layer 1 only as a branch terminator
 }
 
 func isLangKeyword(t string) bool { return langKeyword[t] }
@@ -163,25 +166,107 @@ func (p *langParser) parse() (Skill, error) {
 			}
 			s.Contract = append(s.Contract, Check{Predicate: pred, Args: args})
 		case keywordStep:
-			p.pos++
-			nm, ok := p.next()
-			if !ok || isLangKeyword(nm) || !dhnt.IsCanonical(nm) {
-				return Skill{}, fmt.Errorf("skills: step expects a name")
-			}
-			prim, ok := p.next()
-			if !ok || isLangKeyword(prim) || !dhnt.IsCanonical(prim) {
-				return Skill{}, fmt.Errorf("skills: step %q expects a primitive", nm)
-			}
-			lat, args, err := p.collectArgs()
+			st, err := p.parseLangStep()
 			if err != nil {
 				return Skill{}, err
 			}
-			s.Steps = append(s.Steps, Step{Name: nm, Primitive: prim, Latitude: lat, Args: args})
+			s.Steps = append(s.Steps, st)
+		case keywordWhen:
+			br, err := p.parseLangBranch()
+			if err != nil {
+				return Skill{}, err
+			}
+			s.Steps = append(s.Steps, Step{Branch: br})
 		default:
 			return Skill{}, fmt.Errorf("skills: unexpected token %q in Layer 1 body", kw)
 		}
 	}
 	return s, nil
+}
+
+// parseLangStep parses one leaf step; the cursor is on keywordStep.
+func (p *langParser) parseLangStep() (Step, error) {
+	p.pos++ // consume keywordStep
+	nm, ok := p.next()
+	if !ok || isLangKeyword(nm) || !dhnt.IsCanonical(nm) {
+		return Step{}, fmt.Errorf("skills: step expects a name")
+	}
+	prim, ok := p.next()
+	if !ok || isLangKeyword(prim) || !dhnt.IsCanonical(prim) {
+		return Step{}, fmt.Errorf("skills: step %q expects a primitive", nm)
+	}
+	lat, args, err := p.collectArgs()
+	if err != nil {
+		return Step{}, err
+	}
+	return Step{Name: nm, Primitive: prim, Latitude: lat, Args: args}, nil
+}
+
+// parseStepListLang parses leaf steps and nested branches until a token
+// in stops is next.
+func (p *langParser) parseStepListLang(stops map[string]bool) ([]Step, error) {
+	var out []Step
+	for {
+		tok, ok := p.peek()
+		if !ok {
+			return nil, fmt.Errorf("skills: unexpected end-of-input in branch body")
+		}
+		if stops[tok] {
+			return out, nil
+		}
+		switch tok {
+		case keywordStep:
+			st, err := p.parseLangStep()
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, st)
+		case keywordWhen:
+			br, err := p.parseLangBranch()
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, Step{Branch: br})
+		default:
+			return nil, fmt.Errorf("skills: unexpected token %q in branch body", tok)
+		}
+	}
+}
+
+// parseLangBranch parses `when <pred> {arg val} <then> [else <else>] fini`;
+// the cursor is on keywordWhen. Branches are the one Layer 1 construct
+// closed by an explicit `fini`.
+func (p *langParser) parseLangBranch() (*Branch, error) {
+	p.pos++ // consume keywordWhen
+	pred, ok := p.next()
+	if !ok || isLangKeyword(pred) || !dhnt.IsCanonical(pred) {
+		return nil, fmt.Errorf("skills: when expects a predicate")
+	}
+	br := &Branch{Cond: Check{Predicate: pred}}
+	_, args, err := p.collectArgs()
+	if err != nil {
+		return nil, err
+	}
+	br.Cond.Args = args
+
+	then, err := p.parseStepListLang(map[string]bool{keywordElse: true, keywordEnd: true})
+	if err != nil {
+		return nil, err
+	}
+	br.Then = then
+
+	if tok, ok := p.peek(); ok && tok == keywordElse {
+		p.pos++
+		els, err := p.parseStepListLang(map[string]bool{keywordEnd: true})
+		if err != nil {
+			return nil, err
+		}
+		br.Else = els
+	}
+	if tok, ok := p.next(); !ok || tok != keywordEnd {
+		return nil, fmt.Errorf("skills: branch %q not terminated by fini", pred)
+	}
+	return br, nil
 }
 
 // collectIdents consumes canonical tokens until the next keyword or

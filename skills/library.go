@@ -54,8 +54,21 @@ func (l *Library) isCall(primitive string) bool { _, ok := l.byName[primitive]; 
 func (l *Library) Dependencies(s Skill) []string {
 	var deps []string
 	seen := make(map[string]struct{})
-	for i := range s.Steps {
-		p := s.Steps[i].Primitive
+	l.collectDeps(s.Steps, seen, &deps)
+	return deps
+}
+
+// collectDeps walks a step list (recursing into branch arms) gathering
+// sub-skill calls in first-seen order.
+func (l *Library) collectDeps(steps []Step, seen map[string]struct{}, deps *[]string) {
+	for i := range steps {
+		st := &steps[i]
+		if st.Branch != nil {
+			l.collectDeps(st.Branch.Then, seen, deps)
+			l.collectDeps(st.Branch.Else, seen, deps)
+			continue
+		}
+		p := st.Primitive
 		if !l.isCall(p) {
 			continue
 		}
@@ -63,9 +76,8 @@ func (l *Library) Dependencies(s Skill) []string {
 			continue
 		}
 		seen[p] = struct{}{}
-		deps = append(deps, p)
+		*deps = append(*deps, p)
 	}
-	return deps
 }
 
 // Closure returns the transitive set of sub-skill names reachable from

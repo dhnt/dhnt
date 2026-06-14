@@ -119,6 +119,12 @@ func (p *parser) parseSkill() (Skill, error) {
 				return Skill{}, err
 			}
 			skill.Steps = append(skill.Steps, step)
+		case keywordWhen:
+			br, err := p.parseBranch()
+			if err != nil {
+				return Skill{}, err
+			}
+			skill.Steps = append(skill.Steps, Step{Branch: br})
 		default:
 			return Skill{}, fmt.Errorf("skills: unexpected token %q in skill body", tok)
 		}
@@ -178,6 +184,105 @@ func (p *parser) parseEffectCap() ([]Effect, error) {
 		return nil, fmt.Errorf("skills: empty effect block")
 	}
 	return effs, nil
+}
+
+// parseArgsUntil reads (name, value) pairs until a token in stops is
+// the next token (the stop token is not consumed).
+func (p *parser) parseArgsUntil(who string, stops map[string]bool) ([]Arg, error) {
+	var args []Arg
+	for {
+		tok, ok := p.peek()
+		if !ok {
+			return nil, fmt.Errorf("skills: %s: unexpected end-of-input", who)
+		}
+		if stops[tok] {
+			return args, nil
+		}
+		p.pos++ // consume name
+		if !dhnt.IsCanonical(tok) {
+			return nil, fmt.Errorf("skills: %s arg name %q is not canonical dhnt", who, tok)
+		}
+		valueTok, ok := p.next()
+		if !ok || stops[valueTok] {
+			return nil, fmt.Errorf("skills: %s arg %q has no value", who, tok)
+		}
+		val, err := parseValue(valueTok)
+		if err != nil {
+			return nil, fmt.Errorf("skills: %s arg %q: %w", who, tok, err)
+		}
+		args = append(args, Arg{Name: tok, Value: val})
+	}
+}
+
+// parseStepList parses leaf steps and nested branches until a token in
+// stops is next (not consumed).
+func (p *parser) parseStepList(stops map[string]bool) ([]Step, error) {
+	var out []Step
+	for {
+		tok, ok := p.peek()
+		if !ok {
+			return nil, fmt.Errorf("skills: unexpected end-of-input in step list")
+		}
+		if stops[tok] {
+			return out, nil
+		}
+		switch tok {
+		case keywordStep:
+			st, err := p.parseStep()
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, st)
+		case keywordWhen:
+			br, err := p.parseBranch()
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, Step{Branch: br})
+		default:
+			return nil, fmt.Errorf("skills: unexpected token %q in step list", tok)
+		}
+	}
+}
+
+// parseBranch parses `wuheni <pred> {arg val} <then> [elise <else>] fini`.
+func (p *parser) parseBranch() (*Branch, error) {
+	if err := p.expect(keywordWhen); err != nil {
+		return nil, err
+	}
+	pred, ok := p.next()
+	if !ok {
+		return nil, fmt.Errorf("skills: expected predicate after %q", keywordWhen)
+	}
+	if !dhnt.IsCanonical(pred) {
+		return nil, fmt.Errorf("skills: branch condition %q is not canonical dhnt", pred)
+	}
+	br := &Branch{Cond: Check{Predicate: pred}}
+	condStops := map[string]bool{keywordStep: true, keywordWhen: true, keywordElse: true, keywordEnd: true}
+	args, err := p.parseArgsUntil("branch "+pred, condStops)
+	if err != nil {
+		return nil, err
+	}
+	br.Cond.Args = args
+
+	then, err := p.parseStepList(map[string]bool{keywordElse: true, keywordEnd: true})
+	if err != nil {
+		return nil, err
+	}
+	br.Then = then
+
+	if tok, ok := p.peek(); ok && tok == keywordElse {
+		p.pos++
+		els, err := p.parseStepList(map[string]bool{keywordEnd: true})
+		if err != nil {
+			return nil, err
+		}
+		br.Else = els
+	}
+	if err := p.expect(keywordEnd); err != nil {
+		return nil, err
+	}
+	return br, nil
 }
 
 // parseLatitudeAtom maps a Layer 1.5 latitude atom to a Latitude.

@@ -29,6 +29,8 @@ const (
 	keywordEffect = "efefecato" // dhnt of "effect" — effect-cap block
 	keywordEnsure = "enisure"   // dhnt of "ensure" — a contract clause
 	keywordStep   = "sotepo"    // dhnt of "step"
+	keywordWhen   = "wuheni"    // dhnt of "when" — a flow-control branch
+	keywordElse   = "elise"     // dhnt of "else" — the else arm of a branch
 	keywordEnd    = "fini"      // dhnt of "fin" — block terminator
 
 	latKeyword = "latitude" // reserved step arg name for the P4 dial
@@ -120,13 +122,49 @@ func LineariseDhnt(s Skill) (string, error) {
 		b.WriteString(keywordEnd)
 	}
 
-	for i := range s.Steps {
-		st := &s.Steps[i]
+	if err := lineariseStepsDhnt(&b, s.Steps); err != nil {
+		return "", err
+	}
+
+	b.WriteByte(' ')
+	b.WriteString(keywordEnd)
+	return b.String(), nil
+}
+
+// lineariseArgsDhnt emits ` name value` pairs for an arg list.
+func lineariseArgsDhnt(b *strings.Builder, who string, args []Arg) error {
+	for j := range args {
+		a := &args[j]
+		if !dhnt.IsCanonical(a.Name) {
+			return fmt.Errorf("skills: %s arg %d name %q is not canonical dhnt", who, j, a.Name)
+		}
+		b.WriteByte(' ')
+		b.WriteString(a.Name)
+		b.WriteByte(' ')
+		val, err := lineariseExpr(a.Value)
+		if err != nil {
+			return fmt.Errorf("skills: %s arg %q: %w", who, a.Name, err)
+		}
+		b.WriteString(val)
+	}
+	return nil
+}
+
+// lineariseStepsDhnt renders a step list, recursing into branches.
+func lineariseStepsDhnt(b *strings.Builder, steps []Step) error {
+	for i := range steps {
+		st := &steps[i]
+		if st.Branch != nil {
+			if err := lineariseBranchDhnt(b, st.Branch); err != nil {
+				return err
+			}
+			continue
+		}
 		if !dhnt.IsCanonical(st.Name) {
-			return "", fmt.Errorf("skills: step %d name %q is not canonical dhnt", i, st.Name)
+			return fmt.Errorf("skills: step %d name %q is not canonical dhnt", i, st.Name)
 		}
 		if !dhnt.IsCanonical(st.Primitive) {
-			return "", fmt.Errorf("skills: step %q primitive %q is not canonical dhnt", st.Name, st.Primitive)
+			return fmt.Errorf("skills: step %q primitive %q is not canonical dhnt", st.Name, st.Primitive)
 		}
 		b.WriteByte(' ')
 		b.WriteString(keywordStep)
@@ -140,27 +178,40 @@ func LineariseDhnt(s Skill) (string, error) {
 			b.WriteByte(' ')
 			b.WriteString(latAtom(st.Latitude))
 		}
-		for j := range st.Args {
-			a := &st.Args[j]
-			if !dhnt.IsCanonical(a.Name) {
-				return "", fmt.Errorf("skills: step %q arg %d name %q is not canonical dhnt", st.Name, j, a.Name)
-			}
-			b.WriteByte(' ')
-			b.WriteString(a.Name)
-			b.WriteByte(' ')
-			val, err := lineariseExpr(a.Value)
-			if err != nil {
-				return "", fmt.Errorf("skills: step %q arg %q: %w", st.Name, a.Name, err)
-			}
-			b.WriteString(val)
+		if err := lineariseArgsDhnt(b, "step "+st.Name, st.Args); err != nil {
+			return err
 		}
 		b.WriteByte(' ')
 		b.WriteString(keywordEnd)
 	}
+	return nil
+}
 
+// lineariseBranchDhnt renders `wuheni <cond> <then> [elise <else>] fini`.
+func lineariseBranchDhnt(b *strings.Builder, br *Branch) error {
+	if !dhnt.IsCanonical(br.Cond.Predicate) {
+		return fmt.Errorf("skills: branch condition %q is not canonical dhnt", br.Cond.Predicate)
+	}
+	b.WriteByte(' ')
+	b.WriteString(keywordWhen)
+	b.WriteByte(' ')
+	b.WriteString(br.Cond.Predicate)
+	if err := lineariseArgsDhnt(b, "branch "+br.Cond.Predicate, br.Cond.Args); err != nil {
+		return err
+	}
+	if err := lineariseStepsDhnt(b, br.Then); err != nil {
+		return err
+	}
+	if len(br.Else) > 0 {
+		b.WriteByte(' ')
+		b.WriteString(keywordElse)
+		if err := lineariseStepsDhnt(b, br.Else); err != nil {
+			return err
+		}
+	}
 	b.WriteByte(' ')
 	b.WriteString(keywordEnd)
-	return b.String(), nil
+	return nil
 }
 
 func lineariseExpr(e Expr) (string, error) {
@@ -229,24 +280,65 @@ func LineariseLang(s Skill, g *Glossary, lang string) (string, error) {
 		b.WriteString(resolve(keywordEnsure))
 		b.WriteByte(' ')
 		b.WriteString(resolve(c.Predicate))
-		for j := range c.Args {
-			a := &c.Args[j]
-			b.WriteByte(' ')
-			b.WriteString(resolve(a.Name))
-			b.WriteByte(' ')
-			switch a.Value.Kind {
-			case ExprRef:
-				b.WriteString(resolve(a.Value.Ref))
-			case ExprNumber:
-				fmt.Fprintf(&b, "%d", a.Value.Number)
-			default:
-				return "", fmt.Errorf("contract %q arg %q: invalid expr kind %d", c.Predicate, a.Name, a.Value.Kind)
-			}
+		if err := lineariseArgsLang(&b, resolve, "contract "+c.Predicate, c.Args); err != nil {
+			return "", err
 		}
 	}
 
-	for i := range s.Steps {
-		st := &s.Steps[i]
+	if err := lineariseStepsLang(&b, resolve, s.Steps); err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+// lineariseArgsLang emits ` label value` pairs in the target language.
+func lineariseArgsLang(b *strings.Builder, resolve func(string) string, who string, args []Arg) error {
+	for j := range args {
+		a := &args[j]
+		b.WriteByte(' ')
+		b.WriteString(resolve(a.Name))
+		b.WriteByte(' ')
+		switch a.Value.Kind {
+		case ExprRef:
+			b.WriteString(resolve(a.Value.Ref))
+		case ExprNumber:
+			fmt.Fprintf(b, "%d", a.Value.Number)
+		default:
+			return fmt.Errorf("%s arg %q: invalid expr kind %d", who, a.Name, a.Value.Kind)
+		}
+	}
+	return nil
+}
+
+// lineariseStepsLang renders a step list in the target language,
+// recursing into branches. Leaf steps carry no terminator (Layer 1
+// convention), but a branch is closed by `fini` so it stays unambiguous
+// when re-parsed by ParseLang.
+func lineariseStepsLang(b *strings.Builder, resolve func(string) string, steps []Step) error {
+	for i := range steps {
+		st := &steps[i]
+		if st.Branch != nil {
+			b.WriteByte(' ')
+			b.WriteString(resolve(keywordWhen))
+			b.WriteByte(' ')
+			b.WriteString(resolve(st.Branch.Cond.Predicate))
+			if err := lineariseArgsLang(b, resolve, "branch", st.Branch.Cond.Args); err != nil {
+				return err
+			}
+			if err := lineariseStepsLang(b, resolve, st.Branch.Then); err != nil {
+				return err
+			}
+			if len(st.Branch.Else) > 0 {
+				b.WriteByte(' ')
+				b.WriteString(resolve(keywordElse))
+				if err := lineariseStepsLang(b, resolve, st.Branch.Else); err != nil {
+					return err
+				}
+			}
+			b.WriteByte(' ')
+			b.WriteString(resolve(keywordEnd))
+			continue
+		}
 		b.WriteByte(' ')
 		b.WriteString(resolve(keywordStep))
 		b.WriteByte(' ')
@@ -259,20 +351,9 @@ func LineariseLang(s Skill, g *Glossary, lang string) (string, error) {
 			b.WriteByte(' ')
 			b.WriteString(resolve(latAtom(st.Latitude)))
 		}
-		for j := range st.Args {
-			a := &st.Args[j]
-			b.WriteByte(' ')
-			b.WriteString(resolve(a.Name))
-			b.WriteByte(' ')
-			switch a.Value.Kind {
-			case ExprRef:
-				b.WriteString(resolve(a.Value.Ref))
-			case ExprNumber:
-				fmt.Fprintf(&b, "%d", a.Value.Number)
-			default:
-				return "", fmt.Errorf("step %q arg %q: invalid expr kind %d", st.Name, a.Name, a.Value.Kind)
-			}
+		if err := lineariseArgsLang(b, resolve, "step "+st.Name, st.Args); err != nil {
+			return err
 		}
 	}
-	return b.String(), nil
+	return nil
 }

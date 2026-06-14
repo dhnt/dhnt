@@ -39,6 +39,7 @@ const (
 	PrimExpect = "exupecato" // expect
 	PrimQuit   = "quito"     // quit
 	PredClean  = "caleani"   // clean (exited with status 0)
+	PredSeen   = "seeni"     // seen (a pattern is present in the output so far)
 )
 
 // Spec configures the driver for one terminal tool.
@@ -89,6 +90,7 @@ func NewEnv(spec Spec) (skills.Env, *Session, error) {
 		},
 		Predicates: map[string]skills.PredicateFn{
 			PredClean: s.clean,
+			PredSeen:  s.seen,
 		},
 	}
 	// expect causes read+time and may fail; it is modelled as a primitive
@@ -208,6 +210,22 @@ func (s *Session) wait() {
 		s.exited = true
 		s.exitOK = false
 	}
+}
+
+// seen is a non-blocking predicate: is the pattern present in the output
+// captured so far? It is the branch condition that lets one skill react
+// to whatever the tool actually showed (an error, an approval prompt, a
+// clarification request) — the expect-with-alternatives idiom.
+func (s *Session) seen(args []skills.Arg) (bool, []skills.Effect, error) {
+	ref, err := argRef(args)
+	if err != nil {
+		return false, nil, err
+	}
+	re, ok := s.res[ref]
+	if !ok {
+		return false, nil, fmt.Errorf("tui: no pattern bound for %q", ref)
+	}
+	return re.Match(s.snapshot()), []skills.Effect{skills.EffRead}, nil
 }
 
 func (s *Session) clean(args []skills.Arg) (bool, []skills.Effect, error) {

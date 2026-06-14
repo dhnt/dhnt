@@ -216,12 +216,28 @@ func normaliseSkill(s Skill) Skill {
 			s.Contract[i].Args = nil
 		}
 	}
-	for i := range s.Steps {
-		if len(s.Steps[i].Args) == 0 {
-			s.Steps[i].Args = nil
+	s.Steps = normaliseSteps(s.Steps)
+	return s
+}
+
+func normaliseSteps(steps []Step) []Step {
+	if len(steps) == 0 {
+		return nil
+	}
+	for i := range steps {
+		if steps[i].Branch != nil {
+			if len(steps[i].Branch.Cond.Args) == 0 {
+				steps[i].Branch.Cond.Args = nil
+			}
+			steps[i].Branch.Then = normaliseSteps(steps[i].Branch.Then)
+			steps[i].Branch.Else = normaliseSteps(steps[i].Branch.Else)
+			continue
+		}
+		if len(steps[i].Args) == 0 {
+			steps[i].Args = nil
 		}
 	}
-	return s
+	return steps
 }
 
 // TestRoundtrip_Contract exercises pillar P1: a skill whose spine is a
@@ -357,6 +373,62 @@ func TestRoundtrip_Latitude(t *testing.T) {
 		}
 		if !reflect.DeepEqual(normaliseSkill(got), normaliseSkill(s)) {
 			t.Errorf("%s latitude roundtrip mismatch\n want %#v\n got %#v\n l1 %q",
+				lang, normaliseSkill(s), normaliseSkill(got), l1)
+		}
+	}
+}
+
+// TestRoundtrip_Branch exercises flow control: a skill with a nested
+// when/else branch round-trips through L1.5 and through en/zh.
+func TestRoundtrip_Branch(t *testing.T) {
+	g := loadSeedGlossary(t)
+	s := Skill{
+		Name: "darive",
+		Steps: []Step{
+			{Name: "sa", Primitive: "loge"},
+			{Branch: &Branch{
+				Cond: Check{Predicate: "gereeni"},
+				Then: []Step{
+					{Name: "se", Primitive: "porinito", Args: []Arg{{Name: "value", Value: NewRef("texuto")}}},
+					{Branch: &Branch{ // nested
+						Cond: Check{Predicate: "sigeneda"},
+						Then: []Step{{Name: "si", Primitive: "loge"}},
+					}},
+				},
+				Else: []Step{{Name: "so", Primitive: "loge", Args: []Arg{{Name: "numibero", Value: NewNumber(9)}}}},
+			}},
+		},
+		Contract: []Check{{Predicate: "gereeni"}},
+	}
+	enc, err := LineariseDhnt(s)
+	if err != nil {
+		t.Fatalf("LineariseDhnt: %v", err)
+	}
+	if err := validateLayer15Charset(enc); err != nil {
+		t.Fatalf("non-Layer-1.5 output: %v\n%s", err, enc)
+	}
+	if !strings.Contains(enc, keywordWhen) || !strings.Contains(enc, keywordElse) {
+		t.Errorf("expected when/else in L1.5:\n%s", enc)
+	}
+	parsed, err := ParseDhnt(enc)
+	if err != nil {
+		t.Fatalf("ParseDhnt(%q): %v", enc, err)
+	}
+	if !reflect.DeepEqual(normaliseSkill(parsed), normaliseSkill(s)) {
+		t.Errorf("L1.5 branch roundtrip mismatch\n want %#v\n  got %#v\n  enc %s",
+			normaliseSkill(s), normaliseSkill(parsed), enc)
+	}
+	for _, lang := range []string{"en", "zh"} {
+		l1, err := LineariseLang(s, g, lang)
+		if err != nil {
+			t.Fatalf("LineariseLang(%s): %v", lang, err)
+		}
+		got, err := ParseLang(l1, g, lang)
+		if err != nil {
+			t.Fatalf("ParseLang(%s, %q): %v", lang, l1, err)
+		}
+		if !reflect.DeepEqual(normaliseSkill(got), normaliseSkill(s)) {
+			t.Errorf("%s branch roundtrip mismatch\n want %#v\n  got %#v\n  l1 %q",
 				lang, normaliseSkill(s), normaliseSkill(got), l1)
 		}
 	}

@@ -390,6 +390,18 @@ All eight pillars are now implemented in this package:
 | P5 attestation | `attest.go` `Attestation` / `Attest` / `Consistent` |
 | P6 composition | `library.go` `Library` (deps, closure, effect audit) |
 | P7 bidirectional | `parse_lang.go` `ParseLang` |
+| flow control | `ast.go` `Branch`, `when`/`else` in parse/linearise/exec |
+
+**Flow control (playbook branches).** A `Step` may be a `Branch` —
+`when <predicate> … [else …]` — instead of a leaf call. Branches nest,
+round-trip through L1.5 and every language projection (in Layer 1 a
+branch is closed by `fini`, the one delimited construct there), and the
+executor runs the Then or Else arm by evaluating the condition predicate.
+This turns a runbook (linear steps) into a playbook (steps + decisions)
+while the contract stays the spine. The TUI driver uses it for
+expect-with-alternatives: `seen <pattern>` is a non-blocking predicate,
+so one skill reacts to whatever a tool shows — an error, an approval
+prompt, a clarification request.
 
 **Layer 3 reference executor (`exec.go`).** `Env` binds dhnt
 primitive/predicate ids to real Go implementations; `Run(skill, env,
