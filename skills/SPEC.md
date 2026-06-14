@@ -421,6 +421,24 @@ inputs + timeout); the skill encodes the *protocol*, the Spec supplies
 the *tool*. See `examples/tui_drive` and `skills/tui/tui_test.go`
 (drives `cat`/`sh` over a real PTY, contract-verified).
 
+## 12a. Interop with Anthropic Skills (zero-config consumption)
+
+`ExportSkillMD(skill, glossary, meta)` renders a dhnt skill as a standard
+`SKILL.md` (YAML frontmatter + markdown body). Dropped into a skills
+directory (e.g. `~/.claude/skills/<name>/SKILL.md`), it is usable by ANY
+Skills-capable tool with no extra config:
+
+- a generic tool reads `name`/`description`, then follows the body — a
+  self-contained rendering of the constraints (allowed effects), the
+  steps (branches rendered as if/otherwise), and the success criteria
+  (the contract);
+- a dhnt-aware runtime sees `executor: cnl` and executes the embedded
+  canonical form, emitting an attestation. A tool that doesn't know dhnt
+  ignores the unknown executor and just follows the prose.
+
+So the same artifact degrades gracefully across tiers. The reverse
+direction — prose `SKILL.md` → dhnt skill — is `Normalise` (§ L0→L2).
+
 ## 13. Non-goals / still out of scope
 
 - **L0 → L2 normaliser** (the constrained-decoded slot-filler that turns
