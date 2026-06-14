@@ -17,6 +17,12 @@ You may obtain a copy of the License at
 > here preserves the existing transpilability invariant and the roundtrip
 > tests in `roundtrip_test.go`.
 
+> **Naming.** We call these **dhnt skills**: the word "skill" every
+> developer and agentic tool already understands, qualified by the
+> language they are written in. A *dhnt skill* is a machine-checkable
+> skill (a typed `Skill` AST with a contract); a regular *skill* is prose
+> a model reads. Same word, made precise by the qualifier — no new jargon.
+
 ## 0. What this language is for
 
 Author a procedure **once** so that it is, at the same time:
@@ -392,6 +398,16 @@ and seals the result into an `Attestation`. `Valid` is computed from the
 contract (P1) and effect cap (P3), never asserted by the executor. See
 `examples/contract_run`: one skill, three executor tiers (diligent /
 lazy / rogue), one verdict each — convergence enforced, not hoped for.
+
+**TUI driver leaf (`skills/tui`).** A real applied executor: it binds the
+abstract dhnt primitives `spawn`/`send`/`expect`/`quit` and the
+`clean-exit` predicate to a pseudo-terminal (the expect(1) idiom) via
+`github.com/creack/pty` (MIT). One tool-agnostic dhnt skill drives any
+terminal app — `cat`, `sh`, or an agentic CLI (claude / codex / gemini /
+aider / opencode) — by swapping the `Spec` (argv + regex patterns +
+inputs + timeout); the skill encodes the *protocol*, the Spec supplies
+the *tool*. See `examples/tui_drive` and `skills/tui/tui_test.go`
+(drives `cat`/`sh` over a real PTY, contract-verified).
 
 ## 13. Non-goals / still out of scope
 
