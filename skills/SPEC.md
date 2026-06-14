@@ -272,6 +272,39 @@ deterministic artifact with an identity**. Like an LLM writing code: the
 writing varies; once you have the skill, running and verifying it does not.
 The non-determinism is captured once, not re-incurred on every use.
 
+## 5b. Runtime self-improvement (adaptation)
+
+A dhnt skill can learn from failure and reuse a verified fix — soundly,
+because the contract is a deterministic oracle (`adapt.go`). A prose skill
+cannot: it has no stable identity to key a cache on and no oracle to
+certify a cached fix, so it re-interprets (and often re-fixes) every run.
+
+`RunAdaptive(skill, env, tier, probes, store, repair)`:
+
+1. **Lookup** — `ContextKey(probes)` fingerprints the environment (OS,
+   arch, tool versions). If a variant is cached for `(Identity(skill),
+   ContextKey)`, run it and **re-verify** (this also handles drift: a
+   stale variant simply fails and is re-learned).
+2. **Baseline** — otherwise run the skill as written; if it passes, done.
+3. **Repair** — otherwise a model (`Completer`, e.g. an agent CLI) proposes
+   a corrected implementation. It is accepted **only if it satisfies the
+   ORIGINAL contract within the ORIGINAL effect cap** — the model may
+   change the *how*, never the *what* (the verification skill grafts the
+   original `Contract`+`EffectCap` onto the candidate's steps, so a model
+   cannot "fix" a run by weakening the spec or escalating blast radius).
+   A passing variant is cached with its attestation.
+
+Next call in the same context — *even by a different agent sharing the
+store* — reuses the verified variant; no re-error, no re-repair. Stores:
+`MemStore` and `FileStore` (`<dir>/<skill_id>/<context_key>.json`).
+
+Guardrails (all enforced or tested): promote only contract-verified
+variants; effect containment (over-cap repairs are rejected and not
+cached); re-verify on read; context-keyed so drift re-learns; bounded
+repair attempts. Phase 2 (not yet built): emit the repair as a learned
+`when/else` branch folded back into the skill, so it self-heals into a
+more general playbook and the fix ships *in the skill* rather than a cache.
+
 ## 6. Effects (P3) — typed and bounded
 
 Every `primitive` and `predicate` glossary entry declares the effects it may
