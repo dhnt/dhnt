@@ -122,6 +122,44 @@ func HeadlessSpec(name, prompt, answerPat, dir string) (Spec, bool) {
 	}, true
 }
 
+// Completer returns a skills.Completer backed by an agent CLI in headless
+// mode: it runs `<agent> <prompt>` to completion over a PTY and returns
+// everything the tool printed. This lets the L0→L2 normaliser use a real
+// coding CLI as its model — the language bootstrapping itself.
+//
+// dir is the working directory for the tool ("" inherits). Auth/trust
+// prerequisites for the chosen agent still apply (see the catalog notes).
+func Completer(agent, dir string, timeout time.Duration) (skills.Completer, bool) {
+	a, ok := Agents[agent]
+	if !ok {
+		return nil, false
+	}
+	if timeout == 0 {
+		timeout = 180 * time.Second
+	}
+	return func(prompt string) (string, error) {
+		spec := Spec{Argv: a.Headless(prompt), Dir: dir, Quit: "", Timeout: timeout}
+		env, sess, err := NewEnv(spec)
+		if err != nil {
+			return "", err
+		}
+		defer sess.Close()
+		// spawn → reap; capture everything the tool emitted.
+		skill := skills.Skill{
+			Name:      "capituru",
+			EffectCap: []skills.Effect{skills.EffRead, skills.EffWrite, skills.EffNet, skills.EffTime},
+			Steps: []skills.Step{
+				{Name: "sa", Primitive: PrimSpawn},
+				{Name: "su", Primitive: PrimQuit},
+			},
+		}
+		if _, err := skills.Run(skill, env, agent); err != nil {
+			return sess.Output(), err
+		}
+		return sess.Output(), nil
+	}, true
+}
+
 // DriveOnceSkill is the dhnt skill behind both Specs above: spawn the
 // tool, expect the looked-for output (a version string or the model's
 // answer), then reap it — with the contract that it exited cleanly. One

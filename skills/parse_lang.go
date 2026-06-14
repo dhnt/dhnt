@@ -33,13 +33,21 @@ import (
 // Layer 1.5, Layer 1 has no `fini` terminators, so blocks run until the
 // next structural keyword.
 func ParseLang(src string, g *Glossary, lang string) (Skill, error) {
+	return parseLangWith(src, g, lang, false)
+}
+
+// parseLangWith resolves Layer 1 tokens to dhnt and parses. When loan is
+// true, an unknown non-canonical token is deterministically transformed
+// via the dhnt loan-word rule (EncodeWord) instead of being rejected —
+// this is what lets the L0→L2 normaliser accept arbitrary names.
+func parseLangWith(src string, g *Glossary, lang string, loan bool) (Skill, error) {
 	if g == nil {
 		return Skill{}, fmt.Errorf("skills: nil glossary")
 	}
 	fields := strings.Fields(src)
 	toks := make([]string, len(fields))
 	for i, f := range fields {
-		dh, err := resolveToDhnt(g, lang, f)
+		dh, err := resolveToDhnt(g, lang, f, loan)
 		if err != nil {
 			return Skill{}, err
 		}
@@ -51,7 +59,7 @@ func ParseLang(src string, g *Glossary, lang string) (Skill, error) {
 
 // resolveToDhnt maps one Layer 1 surface token to its canonical dhnt
 // form.
-func resolveToDhnt(g *Glossary, lang, tok string) (string, error) {
+func resolveToDhnt(g *Glossary, lang, tok string, loan bool) (string, error) {
 	if e := g.LookupLabel(lang, tok); e != nil {
 		return e.Dhnt, nil
 	}
@@ -64,6 +72,11 @@ func resolveToDhnt(g *Glossary, lang, tok string) (string, error) {
 	}
 	if dhnt.IsCanonical(tok) {
 		return tok, nil
+	}
+	if loan {
+		if enc, err := dhnt.EncodeWord(strings.ToLower(tok)); err == nil && dhnt.IsCanonical(enc) {
+			return enc, nil
+		}
 	}
 	return "", fmt.Errorf("skills: token %q is neither a known %q label, a numeral, nor canonical dhnt", tok, lang)
 }
