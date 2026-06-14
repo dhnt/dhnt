@@ -97,6 +97,32 @@ func main() {
 	}
 	fmt.Println("\nLayer 1 (Chinese projection):")
 	fmt.Println("  " + zh)
+
+	// P0 identity + P5 attestation: a run by any executor tier emits a
+	// portable receipt; Valid is computed from the contract (P1) and the
+	// effect cap (P3), not asserted by the executor.
+	id, err := skills.Identity(original)
+	if err != nil {
+		log.Fatalf("Identity: %v", err)
+	}
+	fmt.Println("\nIdentity (content address):")
+	fmt.Println("  " + id)
+
+	att, err := skills.Attest(original, "claude",
+		map[string]bool{"gereeni": true, "sigeneda": true},
+		[]skills.Effect{skills.EffRead, skills.EffWrite}, "tagged v1.2.3")
+	if err != nil {
+		log.Fatalf("Attest: %v", err)
+	}
+	fmt.Printf("\nAttestation: tier=%s valid=%v passed=%v failed=%v effects=%v\n",
+		att.Tier, att.Valid, att.Passed, att.Failed, att.Effects)
+	fmt.Printf("  re-checkable by anyone holding the skill: Consistent=%v\n", att.Consistent(original))
+
+	// A forged verdict is caught on re-check.
+	forged := att
+	forged.Valid = true
+	forged.Failed = []string{"sigeneda"}
+	fmt.Printf("  forged receipt (Valid flipped) caught: Consistent=%v\n", forged.Consistent(original))
 }
 
 // seedGlossaryPath locates the seed glossary YAML relative to this
