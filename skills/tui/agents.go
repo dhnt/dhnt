@@ -9,10 +9,38 @@
 package tui
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/dhnt/dhnt/skills"
 )
+
+// SpecFromJSON builds a Spec from JSON, with the timeout given in seconds
+// (Go durations don't JSON cleanly). Shape:
+//
+//	{"argv":["sh"],"dir":"","patterns":{"readayu":"READY"},
+//	 "inputs":{"iniputo":"echo READY\n"},"quit":"exit\n","timeout_seconds":5}
+func SpecFromJSON(data []byte) (Spec, error) {
+	var j struct {
+		Argv           []string          `json:"argv"`
+		Dir            string            `json:"dir"`
+		Patterns       map[string]string `json:"patterns"`
+		Inputs         map[string]string `json:"inputs"`
+		Quit           string            `json:"quit"`
+		TimeoutSeconds float64           `json:"timeout_seconds"`
+	}
+	if err := json.Unmarshal(data, &j); err != nil {
+		return Spec{}, err
+	}
+	return Spec{
+		Argv:     j.Argv,
+		Dir:      j.Dir,
+		Patterns: j.Patterns,
+		Inputs:   j.Inputs,
+		Quit:     j.Quit,
+		Timeout:  time.Duration(j.TimeoutSeconds * float64(time.Second)),
+	}, nil
+}
 
 // This file is a catalog of Specs for driving real agentic coding CLIs
 // through a dhnt skill.

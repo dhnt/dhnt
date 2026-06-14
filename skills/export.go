@@ -10,8 +10,31 @@ package skills
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 )
+
+// WriteBundle writes a drop-in skill folder: <dir>/SKILL.md (for any
+// Skills-capable tool) and <dir>/skill.dhnt (the canonical form, for a
+// dhnt-aware runtime). dir is created if needed.
+func WriteBundle(dir string, s Skill, g *Glossary, meta SkillMeta) error {
+	md, err := ExportSkillMD(s, g, meta)
+	if err != nil {
+		return err
+	}
+	canon, err := LineariseDhnt(s)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(md), 0o644); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "skill.dhnt"), []byte(canon+"\n"), 0o644)
+}
 
 // SkillMeta carries the human-facing frontmatter for a SKILL.md export.
 // Name and Description are required (Description is what a Skills-capable

@@ -9,6 +9,8 @@
 package skills
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -78,6 +80,30 @@ func reflect_DeepEqualSkill(a, b Skill) bool {
 	la, ea := LineariseDhnt(a)
 	lb, eb := LineariseDhnt(b)
 	return ea == nil && eb == nil && la == lb
+}
+
+func TestWriteBundle(t *testing.T) {
+	g := loadSeedGlossary(t)
+	s := Skill{Name: "rilease", Contract: []Check{{Predicate: "gereeni"}}, Steps: []Step{{Name: "alile", Primitive: "loge"}}}
+	dir := t.TempDir()
+	if err := WriteBundle(dir, s, g, SkillMeta{Name: "release", Description: "Cut a release"}); err != nil {
+		t.Fatalf("WriteBundle: %v", err)
+	}
+	md, err := os.ReadFile(filepath.Join(dir, "SKILL.md"))
+	if err != nil || !strings.Contains(string(md), "name: release") {
+		t.Fatalf("SKILL.md bad: %v\n%s", err, md)
+	}
+	canon, err := os.ReadFile(filepath.Join(dir, "skill.dhnt"))
+	if err != nil {
+		t.Fatalf("skill.dhnt: %v", err)
+	}
+	parsed, err := ParseDhnt(strings.TrimSpace(string(canon)))
+	if err != nil {
+		t.Fatalf("skill.dhnt does not parse: %v", err)
+	}
+	if !reflect_DeepEqualSkill(parsed, s) {
+		t.Errorf("skill.dhnt != source skill")
+	}
 }
 
 func TestExportSkillMD_RequiresNameAndDescription(t *testing.T) {
