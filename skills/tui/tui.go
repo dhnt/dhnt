@@ -45,6 +45,7 @@ const (
 // Spec configures the driver for one terminal tool.
 type Spec struct {
 	Argv     []string          // program + args to spawn (required)
+	Dir      string            // working directory for the spawned process ("" => inherit)
 	Patterns map[string]string // expect ref -> regexp ("" matches immediately)
 	Inputs   map[string]string // send ref -> literal text to write
 	Quit     string            // text the quit primitive writes ("" => send EOF)
@@ -110,6 +111,7 @@ func argRef(args []skills.Arg) (string, error) {
 
 func (s *Session) spawn(args []skills.Arg) ([]skills.Effect, error) {
 	cmd := exec.Command(s.spec.Argv[0], s.spec.Argv[1:]...)
+	cmd.Dir = s.spec.Dir
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("tui: spawn %v: %w", s.spec.Argv, err)
