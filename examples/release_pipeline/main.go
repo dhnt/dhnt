@@ -135,6 +135,32 @@ func main() {
 		log.Fatalf("Identity(back): %v", err)
 	}
 	fmt.Printf("\nP7 bidirectional: ParseLang(English) re-normalises to the same identity: %v\n", backID == id)
+
+	// P6 composition: skills call skills by name. The library resolves
+	// the call graph and audits that blast radius is monotonic down it.
+	lib := skills.NewLibrary()
+	if err := lib.Add(original); err != nil { // a callee
+		log.Fatalf("library Add: %v", err)
+	}
+	parent := skills.Skill{
+		Name:      "balile",
+		EffectCap: []skills.Effect{skills.EffRead, skills.EffWrite},
+		Steps:     []skills.Step{{Name: "kalile", Primitive: "salutoyu"}}, // calls original
+	}
+	if err := lib.Add(parent); err != nil {
+		log.Fatalf("library Add: %v", err)
+	}
+	deps := lib.Dependencies(parent)
+	clo, err := lib.Closure(parent)
+	if err != nil {
+		log.Fatalf("Closure: %v", err)
+	}
+	viol, err := lib.EffectViolations(parent)
+	if err != nil {
+		log.Fatalf("EffectViolations: %v", err)
+	}
+	fmt.Printf("\nP6 composition: %q calls %v (closure %v); effect violations: %v\n",
+		parent.Name, deps, clo, viol)
 }
 
 // seedGlossaryPath locates the seed glossary YAML relative to this
