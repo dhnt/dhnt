@@ -101,6 +101,12 @@ func (p *parser) parseSkill() (Skill, error) {
 				return Skill{}, err
 			}
 			skill.Caps = append(skill.Caps, caps...)
+		case keywordEnsure:
+			chk, err := p.parseEnsure()
+			if err != nil {
+				return Skill{}, err
+			}
+			skill.Contract = append(skill.Contract, chk)
 		case keywordStep:
 			step, err := p.parseStep()
 			if err != nil {
@@ -135,6 +141,49 @@ func (p *parser) parseNeeds() ([]string, error) {
 		return nil, fmt.Errorf("skills: empty needs block")
 	}
 	return caps, nil
+}
+
+// parseEnsure parses one contract clause:
+//
+//	enisure <predicate> (<arg-name> <value>)* fini
+//
+// The predicate is a canonical glossary id (kind "predicate"); the
+// argument loop mirrors parseStep and stops at the block terminator.
+func (p *parser) parseEnsure() (Check, error) {
+	if err := p.expect(keywordEnsure); err != nil {
+		return Check{}, err
+	}
+	pred, ok := p.next()
+	if !ok {
+		return Check{}, fmt.Errorf("skills: expected predicate after %q", keywordEnsure)
+	}
+	if !dhnt.IsCanonical(pred) {
+		return Check{}, fmt.Errorf("skills: contract predicate %q is not canonical dhnt", pred)
+	}
+	chk := Check{Predicate: pred}
+	for {
+		tok, ok := p.next()
+		if !ok {
+			return Check{}, fmt.Errorf("skills: contract %q expected %q", pred, keywordEnd)
+		}
+		if tok == keywordEnd {
+			break
+		}
+		argName := tok
+		if !dhnt.IsCanonical(argName) {
+			return Check{}, fmt.Errorf("skills: contract %q arg name %q is not canonical dhnt", pred, argName)
+		}
+		valueTok, ok := p.next()
+		if !ok {
+			return Check{}, fmt.Errorf("skills: contract %q arg %q has no value", pred, argName)
+		}
+		val, err := parseValue(valueTok)
+		if err != nil {
+			return Check{}, fmt.Errorf("skills: contract %q arg %q: %w", pred, argName, err)
+		}
+		chk.Args = append(chk.Args, Arg{Name: argName, Value: val})
+	}
+	return chk, nil
 }
 
 func (p *parser) parseStep() (Step, error) {

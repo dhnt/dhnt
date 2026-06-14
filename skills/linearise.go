@@ -24,10 +24,11 @@ import (
 // well-formed dhnt word, so Layer 1.5 has no out-of-band syntax —
 // only [a-z] tokens separated by whitespace.
 const (
-	keywordSkill = "sokilili" // dhnt of "skill"
-	keywordNeeds = "needaso"  // dhnt of "needs"
-	keywordStep  = "sotepo"   // dhnt of "step"
-	keywordEnd   = "fini"     // dhnt of "fin" — block terminator
+	keywordSkill  = "sokilili" // dhnt of "skill"
+	keywordNeeds  = "needaso"  // dhnt of "needs"
+	keywordEnsure = "enisure"  // dhnt of "ensure" — a contract clause
+	keywordStep   = "sotepo"   // dhnt of "step"
+	keywordEnd    = "fini"     // dhnt of "fin" — block terminator
 )
 
 // LineariseDhnt renders a Skill into Layer 1.5 (dhnt canonical form).
@@ -56,6 +57,33 @@ func LineariseDhnt(s Skill) (string, error) {
 			}
 			b.WriteByte(' ')
 			b.WriteString(cap)
+		}
+		b.WriteByte(' ')
+		b.WriteString(keywordEnd)
+	}
+
+	for i := range s.Contract {
+		c := &s.Contract[i]
+		if !dhnt.IsCanonical(c.Predicate) {
+			return "", fmt.Errorf("skills: contract %d predicate %q is not canonical dhnt", i, c.Predicate)
+		}
+		b.WriteByte(' ')
+		b.WriteString(keywordEnsure)
+		b.WriteByte(' ')
+		b.WriteString(c.Predicate)
+		for j := range c.Args {
+			a := &c.Args[j]
+			if !dhnt.IsCanonical(a.Name) {
+				return "", fmt.Errorf("skills: contract %q arg %d name %q is not canonical dhnt", c.Predicate, j, a.Name)
+			}
+			b.WriteByte(' ')
+			b.WriteString(a.Name)
+			b.WriteByte(' ')
+			val, err := lineariseExpr(a.Value)
+			if err != nil {
+				return "", fmt.Errorf("skills: contract %q arg %q: %w", c.Predicate, a.Name, err)
+			}
+			b.WriteString(val)
 		}
 		b.WriteByte(' ')
 		b.WriteString(keywordEnd)
@@ -146,6 +174,28 @@ func LineariseLang(s Skill, g *Glossary, lang string) (string, error) {
 		for _, cap := range s.Caps {
 			b.WriteByte(' ')
 			b.WriteString(resolve(cap))
+		}
+	}
+
+	for i := range s.Contract {
+		c := &s.Contract[i]
+		b.WriteByte(' ')
+		b.WriteString(resolve(keywordEnsure))
+		b.WriteByte(' ')
+		b.WriteString(resolve(c.Predicate))
+		for j := range c.Args {
+			a := &c.Args[j]
+			b.WriteByte(' ')
+			b.WriteString(resolve(a.Name))
+			b.WriteByte(' ')
+			switch a.Value.Kind {
+			case ExprRef:
+				b.WriteString(resolve(a.Value.Ref))
+			case ExprNumber:
+				fmt.Fprintf(&b, "%d", a.Value.Number)
+			default:
+				return "", fmt.Errorf("contract %q arg %q: invalid expr kind %d", c.Predicate, a.Name, a.Value.Kind)
+			}
 		}
 	}
 

@@ -26,6 +26,10 @@ const (
 	KindCapability EntryKind = "capability"
 	KindType       EntryKind = "type"
 	KindPrimitive  EntryKind = "primitive"
+	// KindPredicate is a contract check (pillar P1): it is invoked
+	// inside an `enisure` clause and its evaluation yields a dhnt
+	// boolean (bua/bub).
+	KindPredicate EntryKind = "predicate"
 )
 
 // LangAll is a special label key that means "the same surface form

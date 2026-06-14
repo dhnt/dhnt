@@ -33,6 +33,27 @@ entries:
       en: [needs, requires]
       zh: ["需要", xuyao, "依赖", yilai]
 
+  - dhnt: enisure
+    kind: keyword
+    labels:
+      en: [ensure, require]
+      zh: ["确保", quebao]
+
+  # ─── predicates (contract checks; pillar P1) ──────────────────────
+  # en[0] is a clean a-z word so dhnt == EncodeWord(en[0]); the
+  # hyphenated human name is a secondary synonym for lookup.
+  - dhnt: gereeni
+    kind: predicate
+    labels:
+      en: [green, tests-green]
+      zh: ["测试通过", ceshitongguo]
+
+  - dhnt: sigeneda
+    kind: predicate
+    labels:
+      en: [signed, tag-signed]
+      zh: ["标签已签名", biaoqianyiqianming]
+
   # ─── generic primitives ───────────────────────────────────────────
   - dhnt: porinito
     kind: primitive

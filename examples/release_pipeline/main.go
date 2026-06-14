@@ -40,6 +40,12 @@ func main() {
 	original := skills.Skill{
 		Name: "salutoyu",
 		Caps: []string{"core"},
+		// Contract is the spine (P1): a run is valid iff both checks
+		// hold, regardless of which executor tier ran the steps.
+		Contract: []skills.Check{
+			{Predicate: "gereeni"},  // tests-green
+			{Predicate: "sigeneda"}, // tag-signed
+		},
 		Steps: []skills.Step{
 			{
 				Name:      "feritisitu",

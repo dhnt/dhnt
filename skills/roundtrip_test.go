@@ -202,8 +202,16 @@ func normaliseSkill(s Skill) Skill {
 	if len(s.Caps) == 0 {
 		s.Caps = nil
 	}
+	if len(s.Contract) == 0 {
+		s.Contract = nil
+	}
 	if len(s.Steps) == 0 {
 		s.Steps = nil
+	}
+	for i := range s.Contract {
+		if len(s.Contract[i].Args) == 0 {
+			s.Contract[i].Args = nil
+		}
 	}
 	for i := range s.Steps {
 		if len(s.Steps[i].Args) == 0 {
@@ -211,4 +219,81 @@ func normaliseSkill(s Skill) Skill {
 		}
 	}
 	return s
+}
+
+// TestRoundtrip_Contract exercises pillar P1: a skill whose spine is a
+// contract (with and without steps) must linearise to a-z-clean L1.5,
+// re-parse to the identical AST, and project into multiple languages.
+func TestRoundtrip_Contract(t *testing.T) {
+	shapes := []Skill{
+		// contract-only (an SOP: policy, no steps)
+		{
+			Name:     "rilease",
+			Contract: []Check{{Predicate: "gereeni"}, {Predicate: "sigeneda"}},
+		},
+		// contract + a predicate arg + a step (a runbook)
+		{
+			Name: "rilease",
+			Caps: []string{"core"},
+			Contract: []Check{
+				{Predicate: "gereeni"},
+				{Predicate: "lesoso", Args: []Arg{{Name: "numibero", Value: NewNumber(5)}}},
+			},
+			Steps: []Step{{Name: "alile", Primitive: "loge"}},
+		},
+	}
+	for i, s := range shapes {
+		enc, err := LineariseDhnt(s)
+		if err != nil {
+			t.Fatalf("shape %d: LineariseDhnt: %v", i, err)
+		}
+		if err := validateLayer15Charset(enc); err != nil {
+			t.Fatalf("shape %d: non-Layer-1.5 output: %v\n%s", i, err, enc)
+		}
+		if !strings.Contains(enc, keywordEnsure) {
+			t.Errorf("shape %d: expected %q in L1.5:\n%s", i, keywordEnsure, enc)
+		}
+		parsed, err := ParseDhnt(enc)
+		if err != nil {
+			t.Fatalf("shape %d: ParseDhnt(%q): %v", i, enc, err)
+		}
+		if !reflect.DeepEqual(normaliseSkill(parsed), normaliseSkill(s)) {
+			t.Errorf("shape %d: roundtrip mismatch\n want %#v\n  got %#v\n  enc %s",
+				i, normaliseSkill(s), normaliseSkill(parsed), enc)
+		}
+	}
+}
+
+// TestRoundtrip_ContractDefaultOmitted verifies back-compat (invariant
+// #4): a skill with no contract linearises byte-identically to the
+// pre-contract behaviour — i.e. no stray keyword leaks in.
+func TestRoundtrip_ContractDefaultOmitted(t *testing.T) {
+	enc, err := LineariseDhnt(sampleSkill())
+	if err != nil {
+		t.Fatalf("LineariseDhnt: %v", err)
+	}
+	if strings.Contains(enc, keywordEnsure) {
+		t.Errorf("contract-free skill leaked %q into L1.5:\n%s", keywordEnsure, enc)
+	}
+}
+
+// TestLineariseLang_Contract checks the contract projects into per-
+// language surface forms (pillar P7).
+func TestLineariseLang_Contract(t *testing.T) {
+	g := loadSeedGlossary(t)
+	s := Skill{Name: "rilease", Contract: []Check{{Predicate: "gereeni"}}}
+	en, err := LineariseLang(s, g, "en")
+	if err != nil {
+		t.Fatalf("LineariseLang(en): %v", err)
+	}
+	zh, err := LineariseLang(s, g, "zh")
+	if err != nil {
+		t.Fatalf("LineariseLang(zh): %v", err)
+	}
+	if !strings.Contains(en, "ensure") || !strings.Contains(en, "green") {
+		t.Errorf("English contract projection missing terms:\n%s", en)
+	}
+	if !strings.Contains(zh, "确保") || !strings.Contains(zh, "测试通过") {
+		t.Errorf("Chinese contract projection missing terms:\n%s", zh)
+	}
 }

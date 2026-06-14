@@ -8,23 +8,39 @@
 
 package skills
 
-// Skill is the Layer 2 AST root. All identifiers (Name, Caps, Step
-// names, primitive names, arg names, value references) are dhnt
-// canonical strings keyed against the Glossary.
+// Skill is the Layer 2 AST root. All identifiers (Name, Caps,
+// Contract predicates, Step names, primitive names, arg names, value
+// references) are dhnt canonical strings keyed against the Glossary.
 //
-// Phase 0 covers a deliberately small subset:
+// The grammar covered today:
 //
 //	skill <name>
-//	  needaso <cap>+
-//	  sotepo <step-name> <primitive> <arg-pairs>
+//	  needaso <cap>+ fini
+//	  enisure <predicate> <arg-pairs> fini      // contract clause
+//	  sotepo <step-name> <primitive> <arg-pairs> fini
+//	fini
 //
-// More complex shapes (intent slots, budgets, on-fail policies,
-// nested flow control) are layered in by adding fields here without
-// breaking the existing roundtrip.
+// Contract is the spine (pillar P1): a run is valid iff every Check
+// holds (evaluates to bua). Steps are the optional implementation —
+// any executor tier may reach the contracted end-state by a different
+// path and is judged only by the contract. More complex shapes
+// (effect caps, on-fail policies, nested flow control, intent refs)
+// layer in by adding fields here without breaking the roundtrip.
 type Skill struct {
-	Name  string
-	Caps  []string
-	Steps []Step
+	Name     string
+	Caps     []string
+	Contract []Check
+	Steps    []Step
+}
+
+// Check is one contract clause (pillar P1): a predicate invoked with
+// named arguments whose evaluation must yield true (bua) for a run to
+// be valid. Predicate must be a dhnt-canonical glossary id of kind
+// "predicate"; it is the typed, portable generalisation of an opaque
+// verify command.
+type Check struct {
+	Predicate string
+	Args      []Arg
 }
 
 // Step is one named action: it invokes a single primitive with named
