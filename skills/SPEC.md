@@ -213,6 +213,65 @@ policies (glossary `policy` entries): `aboroto` (abort, default),
 > the check is portable across executor tiers and languages. The shell/Wasm
 > that *implements* a predicate lives in L3, per executor.
 
+## 5a. Determinism — what dhnt makes deterministic (and what it does not)
+
+A regular (prose) skill is instructions a model *interprets*: what it does
+varies by provider/model, varies run-to-run (sampling), its success is
+model-judged (a wrong-but-plausible result passes silently), and it has no
+stable identity. dhnt does **not** make an LLM deterministic. It makes
+three *other* things deterministic, and pushes model non-determinism into
+explicit, gated, optional places. Determinism lives at three layers:
+
+1. **The artifact — fully deterministic.** Canonical form (L1.5), AST,
+   `Identity` (content hash), language projections, and the round-trip are
+   pure functions: the same skill yields the same bytes and the same
+   identity on any machine, every time (invariants §11). A prose skill has
+   no canonical form and no machine equality; a dhnt skill is a stable,
+   comparable object.
+
+2. **Verification — fully deterministic.** The contract (predicates ⇒
+   `bua`/`bub`), the effect-cap check (`EffectsWithin`), and the
+   attestation are deterministic functions of a run's results. *Whether a
+   run satisfied the spec* is decided identically for every executor,
+   every run, every provider. Success becomes machine-decided, not
+   model-judged.
+
+3. **Execution — deterministic iff bound to code.** A step bound to a
+   `LatExact` leaf (write a file, run tests, stat a path) is deterministic
+   like a shell line. A step bound to a **model** (or marked `LatJudge`)
+   is as non-deterministic as that model. dhnt does not change that — it
+   **contains and gates** it.
+
+**The precise claim.** dhnt converts *"hope the model interpreted the
+prose the same way"* into *"let executors vary, but judge every result
+against one fixed, deterministic contract."* Variance in the *how* may
+remain when a step is a model call, but it can no longer pass silently:
+two models — or two runs — are accepted only if they pass the same gate,
+stay within the same effect bound, and emit a re-checkable attestation.
+Hence a weak model + dhnt contract ≈ a strong model + dhnt contract *for
+the success criterion*: outputs may differ, but "did it meet spec"
+converges. The **determinism dial** (P4, `Latitude`) is literally how much
+of a skill you move from model leaves to code leaves — the author chooses,
+per step, how deterministic the skill is.
+
+| | regular skill (prose) | dhnt skill |
+|---|---|---|
+| representation / identity | none (text) | deterministic (canonical form + content hash) |
+| success criterion | model-judged, implicit | deterministically verified (contract) |
+| blast radius (effects) | unbounded, unchecked | deterministically bounded + checked |
+| "did it succeed" across models/runs | varies, silent | converges (same gate) |
+| the work itself | always model-interpreted | author's choice: code leaf = deterministic, model leaf = gated |
+
+**Two honest caveats.** (a) "Deterministic" means *as a function of (skill,
+world-state, bindings)* — a `LatExact` leaf running tests is deterministic
+for the same code, but the filesystem/network/tool output is still the
+real world, as for any program. (b) The prose→skill normaliser (§7, L0→L2)
+is itself a model call and so is non-deterministic *at authoring time* —
+but its output is validated (must transpile) and then **frozen as a
+deterministic artifact with an identity**. Like an LLM writing code: the
+writing varies; once you have the skill, running and verifying it does not.
+The non-determinism is captured once, not re-incurred on every use.
+
 ## 6. Effects (P3) — typed and bounded
 
 Every `primitive` and `predicate` glossary entry declares the effects it may
