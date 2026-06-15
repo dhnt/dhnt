@@ -11,7 +11,9 @@ package skills
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"sort"
+	"strings"
 )
 
 // Identity returns the content address of a skill (pillar P0): the
@@ -63,15 +65,15 @@ func Attest(s Skill, tier string, results map[string]bool, observed []Effect, wo
 	valid := EffectsWithin(observed, s.EffectCap)
 	seen := make(map[string]struct{})
 	for i := range s.Contract {
-		pred := s.Contract[i].Predicate
-		if _, dup := seen[pred]; dup {
+		label := checkLabel(s.Contract[i])
+		if _, dup := seen[label]; dup {
 			continue
 		}
-		seen[pred] = struct{}{}
-		if results[pred] {
-			a.Passed = append(a.Passed, pred)
+		seen[label] = struct{}{}
+		if results[label] {
+			a.Passed = append(a.Passed, label)
 		} else {
-			a.Failed = append(a.Failed, pred)
+			a.Failed = append(a.Failed, label)
 			valid = false
 		}
 	}
@@ -97,12 +99,39 @@ func (a Attestation) Consistent(s Skill) bool {
 	}
 	allPass := len(a.Failed) == 0
 	for i := range s.Contract {
-		if _, ok := passed[s.Contract[i].Predicate]; !ok {
+		if _, ok := passed[checkLabel(s.Contract[i])]; !ok {
 			allPass = false
 		}
 	}
 	want := allPass && EffectsWithin(a.Effects, s.EffectCap)
 	return a.Valid == want
+}
+
+// checkLabel is the stable identity of a contract check: its predicate
+// plus its arguments, so two checks that share a predicate but differ in
+// arguments (e.g. exit-zero of `vet` vs of `test`) are distinct in the
+// results map and the attestation. For an argument-free check the label is
+// just the predicate, preserving prior behavior.
+func checkLabel(c Check) string {
+	if len(c.Args) == 0 {
+		return c.Predicate
+	}
+	parts := make([]string, len(c.Args))
+	for i, a := range c.Args {
+		parts[i] = a.Name + "=" + exprLabel(a.Value)
+	}
+	return c.Predicate + "(" + strings.Join(parts, ",") + ")"
+}
+
+func exprLabel(e Expr) string {
+	switch e.Kind {
+	case ExprRef:
+		return e.Ref
+	case ExprNumber:
+		return fmt.Sprintf("%d", e.Number)
+	default:
+		return "?"
+	}
 }
 
 func dedupEffects(in []Effect) []Effect {

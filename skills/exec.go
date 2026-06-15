@@ -54,7 +54,7 @@ func Run(s Skill, env Env, tier string) (Attestation, error) {
 			return Attestation{}, fmt.Errorf("skills: predicate %q: %w", c.Predicate, err)
 		}
 		observed = append(observed, effs...)
-		results[c.Predicate] = ok2
+		results[checkLabel(*c)] = ok2
 	}
 
 	return Attest(s, tier, results, observed, "")

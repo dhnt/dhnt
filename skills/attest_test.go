@@ -13,6 +13,45 @@ import (
 	"testing"
 )
 
+// TestRun_RepeatedPredicateDistinctArgs guards the fix for predicate-id
+// collision: a contract that uses one predicate twice with DIFFERENT args
+// must evaluate each independently. Here `okp(value=good)` passes and
+// `okp(value=bad)` fails, so the run must be invalid — and would wrongly
+// pass if results were keyed by predicate id alone.
+func TestRun_RepeatedPredicateDistinctArgs(t *testing.T) {
+	skill := Skill{
+		Name: "taso",
+		Contract: []Check{
+			{Predicate: "veri", Args: []Arg{{Name: "value", Value: NewRef("gudo")}}},
+			{Predicate: "veri", Args: []Arg{{Name: "value", Value: NewRef("bado")}}},
+		},
+	}
+	env := Env{Predicates: map[string]PredicateFn{
+		"veri": func(args []Arg) (bool, []Effect, error) {
+			ref := ""
+			for _, a := range args {
+				if a.Name == "value" {
+					ref = a.Value.Ref
+				}
+			}
+			return ref == "gudo", nil, nil
+		},
+	}}
+	att, err := Run(skill, env, "t")
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if att.Valid {
+		t.Errorf("one check failed; run must be invalid, got valid (passed=%v failed=%v)", att.Passed, att.Failed)
+	}
+	if len(att.Failed) != 1 {
+		t.Errorf("expected exactly the bad check to fail, got failed=%v", att.Failed)
+	}
+	if !att.Consistent(skill) {
+		t.Errorf("attestation should be self-consistent")
+	}
+}
+
 func contractedSkill() Skill {
 	return Skill{
 		Name:      "rilease",
