@@ -100,6 +100,14 @@ entries:
       en: [signed, tag-signed]
       zh: ["标签已签名", biaoqianyiqianming]
 
+  # env-match predicate (built-in; gates a folded environment branch)
+  - dhnt: conitexuto
+    kind: predicate
+    effects: [read]
+    labels:
+      en: [context, env-matches]
+      zh: ["环境匹配", huanjingpipei]
+
   # ─── generic primitives ───────────────────────────────────────────
   - dhnt: porinito
     kind: primitive

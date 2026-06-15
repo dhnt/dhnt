@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -38,6 +39,8 @@ func main() {
 		err = cmdRun(os.Args[2:])
 	case "normalise", "normalize":
 		err = cmdNormalise(os.Args[2:])
+	case "promote":
+		err = cmdPromote(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -67,6 +70,11 @@ func usage() {
                 turn plain-English prose (args or stdin) into a dhnt skill
                 using an agent CLI as the model; print canonical or write
                 a bundle.
+
+  dhnt promote  --skill FILE --name N --desc D [--parent ID] --out DIR
+                render a host-learned (folded) skill version as a
+                review-ready bundle for the catalog. Never auto-commits —
+                a human reviews and merges.
 `)
 }
 
@@ -224,6 +232,64 @@ func cmdNormalise(args []string) error {
 	}
 	fmt.Fprintf(os.Stderr, "wrote %s/SKILL.md and %s/skill.dhnt\n", *out, *out)
 	return nil
+}
+
+// --- promote ----------------------------------------------------------
+
+func cmdPromote(args []string) error {
+	fs := flag.NewFlagSet("promote", flag.ExitOnError)
+	skillFile := fs.String("skill", "", "folded/derived canonical .dhnt skill (default stdin)")
+	name := fs.String("name", "", "SKILL.md name (required)")
+	desc := fs.String("desc", "", "SKILL.md description (required)")
+	parent := fs.String("parent", "", "parent skill identity this was derived from")
+	out := fs.String("out", "", "output dir for the review bundle (required)")
+	_ = fs.Parse(args)
+	if *out == "" {
+		return fmt.Errorf("promote needs --out")
+	}
+	canon, err := readSource(*skillFile)
+	if err != nil {
+		return err
+	}
+	skill, err := skills.ParseDhnt(strings.TrimSpace(canon))
+	if err != nil {
+		return fmt.Errorf("parse skill: %w", err)
+	}
+	g, err := skills.SeedGlossary()
+	if err != nil {
+		return err
+	}
+	if err := skills.WriteBundle(*out, skill, g, skills.SkillMeta{Name: *name, Description: *desc, UserInvocable: true}); err != nil {
+		return err
+	}
+	id, _ := skills.Identity(skill)
+	note := fmt.Sprintf(`# Promotion candidate: %s
+
+This skill version was **learned on a host** (a contract-verified
+adaptation) and is proposed for the catalog. It is NOT auto-merged.
+
+- derived identity: %s
+- parent identity:  %s
+
+## Reviewer checklist
+- [ ] the change is a generalisation (e.g. an added environment branch),
+      not a weakening of the contract or effect cap;
+- [ ] re-verify in the catalog's target environments;
+- [ ] no host-specific paths/secrets leaked into steps;
+- [ ] effects stay within the original cap.
+`, *name, id, orEmpty(*parent))
+	if err := os.WriteFile(filepath.Join(*out, "PROMOTION.md"), []byte(note), 0o644); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "wrote review bundle to %s (SKILL.md, skill.dhnt, PROMOTION.md)\n", *out)
+	return nil
+}
+
+func orEmpty(s string) string {
+	if s == "" {
+		return "(unspecified)"
+	}
+	return s
 }
 
 // --- helpers ----------------------------------------------------------

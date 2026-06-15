@@ -301,9 +301,30 @@ store* — reuses the verified variant; no re-error, no re-repair. Stores:
 Guardrails (all enforced or tested): promote only contract-verified
 variants; effect containment (over-cap repairs are rejected and not
 cached); re-verify on read; context-keyed so drift re-learns; bounded
-repair attempts. Phase 2 (not yet built): emit the repair as a learned
-`when/else` branch folded back into the skill, so it self-heals into a
-more general playbook and the fix ships *in the skill* rather than a cache.
+repair attempts.
+
+**Phase 2 — folding back into the skill (`fold.go`).** A learned fix can be
+woven into the skill as a guarded branch — `FoldBranch(original, cond,
+fixedSteps)` returns a *new version* (`when cond then fix else original`)
+that **preserves the original contract and effect cap** (it adapts the
+how, never the what). Identity is content-addressed, so this is a new
+version, never an in-place mutation; repeated folds accrete one arm per
+environment, so the skill self-heals into a more general playbook. The
+built-in env predicate (`conitexuto`, bound by `WithEnvPredicate`) lets a
+fold be keyed on the context fingerprint (`EnvMatchCheck`), or any named
+predicate can gate it.
+
+*Where the folded version lives is a deliberate policy, not automatic
+catalog mutation:* it is written to a **host-local overlay**
+(`VersionStore`: `MemVersionStore` / `FileVersionStore` under
+`<dir>/<parent_id>/`), and `ResolveLatest` makes a host transparently
+prefer its self-healed version. Pushing a host-learned version **upstream
+to the catalog is a separate, human-reviewed step** — `dhnt promote`
+renders a review bundle (`SKILL.md` + `skill.dhnt` + `PROMOTION.md` with
+lineage + a reviewer checklist); it never auto-commits. Rationale: the
+catalog is shared/OSS, the change is model-authored, and a fix right for
+one host may be wrong globally — so it belongs in a reviewed branch, not
+an automatic write.
 
 ## 6. Effects (P3) — typed and bounded
 
