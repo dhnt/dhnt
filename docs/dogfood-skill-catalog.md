@@ -126,6 +126,30 @@ per-context refinement (configuration or a future learned branch).
     commands now exclude `vendor`/`priorart`/`external` (a `find`-based file
     list); `coreutils` then verifies `valid=true`. A dogfood finding became a
     broadly-correct default, verified back on the same repo.
+  - `dhnt verify --check` on `bonsai` → invalid for real reasons (its own
+    `pkg/bonsai/import_detect.go` + `pkg/graphql/handler_test.go` are not
+    gofmt-clean, and `go vet` fails) — a genuine repo-state finding, not a
+    tool issue.
+  - `dhnt verify --check` on `sh` → invalid: fmt+vet clean but **tests
+    fail** because `sh` resolves to a `ycode-wrap` shim ahead of `/bin/sh`
+    (the documented PATH-shadowing gotcha — sh's tests fork a real shell).
+    **Resolved/validated:** added `Command.Env` + `SanitizedPATH` + the
+    `dhnt verify --clean-path` flag (the clean-path-test skill, mechanized);
+    with `--clean-path`, `sh` verifies `valid=true`. Confirms the catalog's
+    Tier-C `clean-path-test` skill on a real repo.
+
+  Per-repo verify config so far (the practical dogfood output):
+
+  | repo | `dhnt verify` invocation | result |
+  |---|---|---|
+  | dhnt (self), gfy, nadir, coreutils | default `--check` | valid |
+  | sh, bashy | `--check --clean-path` | sh: valid; bashy: expected |
+  | bonsai | default | invalid (real: fmt + vet) — needs upstream cleanup |
+  | cloudbox | `--check --test "make test"` | not run here (needs docker) |
+  | ycode | `--check --test "make test"` | not run here (needs `make init`) |
+  | outpost | `--check --test "go test -short <pkgs minus internal/agent/shell>"` | not run here (TTY-hang risk) |
+  | kg | `--check --test "go test -p 4 -short ./..."` | not run here |
+
   - Per-repo **test command** confirmed as Spec config (`--test "make
     test"` for cloudbox/ycode); folding it into the skill needs the
     command-ref-branch design (test argv lives in the Spec binding, not the

@@ -22,13 +22,40 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/dhnt/dhnt/skills"
 )
+
+// SanitizedPATH returns the current PATH with agent shell-wrapper
+// directories (e.g. ycode-wrap) removed and the core bin dirs ensured, so
+// a tool that forks a real `sh`/`bash` (e.g. the sh/bashy test suites)
+// resolves the system shell rather than a wrapper. This is the mechanism
+// behind the clean-path-test skill.
+func SanitizedPATH() string {
+	var keep []string
+	seen := map[string]bool{}
+	for _, p := range filepath.SplitList(os.Getenv("PATH")) {
+		if p == "" || strings.Contains(p, "ycode-wrap") || strings.Contains(p, "ycode-wrappers") {
+			continue
+		}
+		if !seen[p] {
+			seen[p] = true
+			keep = append(keep, p)
+		}
+	}
+	for _, core := range []string{"/usr/bin", "/bin"} {
+		if !seen[core] {
+			keep = append(keep, core)
+		}
+	}
+	return strings.Join(keep, string(filepath.ListSeparator))
+}
 
 // dhnt ids this leaf binds.
 const (
@@ -37,10 +64,13 @@ const (
 	PredEmptyOut = "enupoto" // the named command produces empty stdout
 )
 
-// Command is one bound command: its argv and the effects it declares.
+// Command is one bound command: its argv, the effects it declares, and an
+// optional env override (appended to the process environment; e.g. a
+// sanitized PATH for repos whose tests fork a real shell).
 type Command struct {
 	Argv    []string
 	Effects []skills.Effect
+	Env     []string
 }
 
 // Spec maps abstract command ids (referenced by skill steps/predicates)
@@ -110,6 +140,9 @@ func (s *Session) exec(ref string) result {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, c.Argv[0], c.Argv[1:]...)
 	cmd.Dir = s.spec.Dir
+	if len(c.Env) > 0 {
+		cmd.Env = append(os.Environ(), c.Env...)
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

@@ -84,11 +84,12 @@ func usage() {
                 review-ready bundle for the catalog. Never auto-commits —
                 a human reviews and merges.
 
-  dhnt verify   [dir] [--test "<cmd>"] [--check]
+  dhnt verify   [dir] [--test "<cmd>"] [--check] [--clean-path]
                 run go-verify on a Go module (gofmt, vet, test) and print
                 the contract-verified attestation. --test overrides the
                 test command (e.g. "make test"); --check is read-only (no
-                gofmt -w; safe for repos you don't want to modify).
+                gofmt -w); --clean-path strips agent shell wrappers from
+                PATH (for repos like sh/bashy whose tests fork a shell).
 
   dhnt commit   -m "<msg>" [--test "<cmd>"] <file>...
                 safe-commit: tests must pass, then stage the named files
@@ -107,6 +108,7 @@ func cmdVerify(args []string) error {
 	fs := flag.NewFlagSet("verify", flag.ExitOnError)
 	test := fs.String("test", "", `override the test command (e.g. "make test")`)
 	check := fs.Bool("check", false, "read-only: do not run gofmt -w")
+	cleanPath := fs.Bool("clean-path", false, "run commands with a sanitized PATH (no agent shell wrappers; for sh/bashy)")
 	_ = fs.Parse(args)
 	dir := "."
 	if rest := fs.Args(); len(rest) > 0 {
@@ -117,6 +119,13 @@ func cmdVerify(args []string) error {
 		testArgv = strings.Fields(*test)
 	}
 	spec := dev.GoVerifySpec(dir, testArgv...)
+	if *cleanPath {
+		env := "PATH=" + dev.SanitizedPATH()
+		for ref, c := range spec.Commands {
+			c.Env = append(c.Env, env)
+			spec.Commands[ref] = c
+		}
+	}
 	env, sess, err := dev.NewEnv(spec)
 	if err != nil {
 		return err
