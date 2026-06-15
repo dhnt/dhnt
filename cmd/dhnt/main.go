@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/dhnt/dhnt/skills"
+	"github.com/dhnt/dhnt/skills/dev"
 	"github.com/dhnt/dhnt/skills/tui"
 )
 
@@ -42,6 +43,8 @@ func main() {
 		err = cmdNormalise(os.Args[2:])
 	case "promote":
 		err = cmdPromote(os.Args[2:])
+	case "verify":
+		err = cmdVerify(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -76,7 +79,47 @@ func usage() {
                 render a host-learned (folded) skill version as a
                 review-ready bundle for the catalog. Never auto-commits —
                 a human reviews and merges.
+
+  dhnt verify   [dir] [--test "<cmd>"]
+                run the go-verify skill on a Go module (gofmt, vet, test)
+                and print the contract-verified attestation. --test
+                overrides the test command (e.g. "make test").
 `)
+}
+
+// --- verify (the go-verify driver) ------------------------------------
+
+func cmdVerify(args []string) error {
+	fs := flag.NewFlagSet("verify", flag.ExitOnError)
+	test := fs.String("test", "", `override the test command (e.g. "make test")`)
+	_ = fs.Parse(args)
+	dir := "."
+	if rest := fs.Args(); len(rest) > 0 {
+		dir = rest[0]
+	}
+	var testArgv []string
+	if strings.TrimSpace(*test) != "" {
+		testArgv = strings.Fields(*test)
+	}
+	spec := dev.GoVerifySpec(dir, testArgv...)
+	env, sess, err := dev.NewEnv(spec)
+	if err != nil {
+		return err
+	}
+	skill := dev.GoVerifySkill()
+	att, runErr := skills.Run(skill, env, "go-verify")
+	if files := strings.TrimSpace(sess.Output("fi")); files != "" {
+		fmt.Fprintf(os.Stderr, "unformatted:\n%s\n", files)
+	}
+	if runErr != nil {
+		return runErr
+	}
+	fmt.Printf("valid=%v consistent=%v passed=%v failed=%v effects=%v\n",
+		att.Valid, att.Consistent(skill), att.Passed, att.Failed, att.Effects)
+	if !att.Valid {
+		os.Exit(1)
+	}
+	return nil
 }
 
 // --- export -----------------------------------------------------------
