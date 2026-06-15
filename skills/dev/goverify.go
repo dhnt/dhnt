@@ -66,9 +66,23 @@ func GoCheckSkill() skills.Skill {
 	}
 }
 
+// fmtFind lists the repo's own Go files, excluding vendored / upstream /
+// generated trees that the project does not own or format (gofmt has no
+// exclude flag; this is the portable equivalent). Patterns match at any
+// depth (e.g. priorart/x/vendor).
+const fmtFind = `find . -name '*.go' -not -path '*/vendor/*' -not -path '*/priorart/*' -not -path '*/external/*' -not -path '*/.git/*'`
+
+// gofmtArgv runs `gofmt <flag>` over fmtFind's files; if there are none it
+// exits 0 (avoids gofmt reading stdin and hanging).
+func gofmtArgv(flag string) []string {
+	return []string{"sh", "-c", `fs=$(` + fmtFind + `); [ -z "$fs" ] && exit 0; exec gofmt ` + flag + ` $fs`}
+}
+
 // GoVerifySpec returns the command table for a Go module at dir. testArgv
 // overrides the test command (default: `go test -short ./...`); this is the
-// knob a per-repo branch flips (e.g. to `make test`).
+// knob a per-repo branch flips (e.g. to `make test`). The fmt commands
+// exclude vendor/priorart/external so a repo with vendored trees isn't
+// flagged for code it doesn't own.
 func GoVerifySpec(dir string, testArgv ...string) Spec {
 	if len(testArgv) == 0 {
 		testArgv = []string{"go", "test", "-short", "./..."}
@@ -77,8 +91,8 @@ func GoVerifySpec(dir string, testArgv ...string) Spec {
 		Dir:     dir,
 		Timeout: 10 * time.Minute,
 		Commands: map[string]Command{
-			cmdFmtWrite: {Argv: []string{"gofmt", "-w", "."}, Effects: []skills.Effect{skills.EffWrite}},
-			cmdFmtList:  {Argv: []string{"gofmt", "-l", "."}, Effects: []skills.Effect{skills.EffRead}},
+			cmdFmtWrite: {Argv: gofmtArgv("-w"), Effects: []skills.Effect{skills.EffWrite}},
+			cmdFmtList:  {Argv: gofmtArgv("-l"), Effects: []skills.Effect{skills.EffRead}},
 			cmdVet:      {Argv: []string{"go", "vet", "./..."}, Effects: []skills.Effect{skills.EffRead, skills.EffTime}},
 			cmdTest:     {Argv: testArgv, Effects: []skills.Effect{skills.EffRead, skills.EffTime}},
 		},

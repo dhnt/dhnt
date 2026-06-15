@@ -122,7 +122,10 @@ per-context refinement (configuration or a future learned branch).
     be *scoped* per repo (exclude `vendor`/`priorart`/`external`); this is
     per-repo Spec config today and a good candidate for a learned/config
     branch. Net: `go-verify`'s substance is sound; its default fmt scope is
-    too broad for repos with vendored trees.
+    too broad for repos with vendored trees. **Resolved:** the default fmt
+    commands now exclude `vendor`/`priorart`/`external` (a `find`-based file
+    list); `coreutils` then verifies `valid=true`. A dogfood finding became a
+    broadly-correct default, verified back on the same repo.
   - Per-repo **test command** confirmed as Spec config (`--test "make
     test"` for cloudbox/ycode); folding it into the skill needs the
     command-ref-branch design (test argv lives in the Spec binding, not the
