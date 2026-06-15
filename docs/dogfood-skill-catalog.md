@@ -104,6 +104,30 @@ skill stays portable.
    invocations across repos, and whether the contract caught real mistakes that
    prose skills had let through.
 
+## Dogfood findings (running log)
+
+Real signal from running the skills on the umbrella; each finding is a
+per-context refinement (configuration or a future learned branch).
+
+- **2026-06-15, `go-verify`/`go-check`:**
+  - Building `go-verify` surfaced a real bug in the **core verifier**:
+    contract results were keyed by predicate id, collapsing two checks that
+    share a predicate but differ in args (vet vs test). Fixed (checkLabel =
+    predicate + args). *Dogfooding found a correctness bug synthetic tests
+    missed.*
+  - `dhnt verify --check` on `gfy` and `nadir` → valid. On `coreutils` →
+    invalid, but only because `gofmt -l .` flagged **vendored `priorart/…/
+    vendor`** files (the tree coreutils excludes with `grep -v
+    '/priorart/'`); vet and tests passed. **Refinement:** the fmt check must
+    be *scoped* per repo (exclude `vendor`/`priorart`/`external`); this is
+    per-repo Spec config today and a good candidate for a learned/config
+    branch. Net: `go-verify`'s substance is sound; its default fmt scope is
+    too broad for repos with vendored trees.
+  - Per-repo **test command** confirmed as Spec config (`--test "make
+    test"` for cloudbox/ycode); folding it into the skill needs the
+    command-ref-branch design (test argv lives in the Spec binding, not the
+    skill AST).
+
 ## Placement and boundary
 
 Authored skills live host-locally (the adaptation overlay) during dogfooding;

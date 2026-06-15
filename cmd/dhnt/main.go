@@ -45,6 +45,10 @@ func main() {
 		err = cmdPromote(os.Args[2:])
 	case "verify":
 		err = cmdVerify(os.Args[2:])
+	case "commit":
+		err = cmdCommit(os.Args[2:])
+	case "bump":
+		err = cmdBump(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -80,10 +84,20 @@ func usage() {
                 review-ready bundle for the catalog. Never auto-commits —
                 a human reviews and merges.
 
-  dhnt verify   [dir] [--test "<cmd>"]
-                run the go-verify skill on a Go module (gofmt, vet, test)
-                and print the contract-verified attestation. --test
-                overrides the test command (e.g. "make test").
+  dhnt verify   [dir] [--test "<cmd>"] [--check]
+                run go-verify on a Go module (gofmt, vet, test) and print
+                the contract-verified attestation. --test overrides the
+                test command (e.g. "make test"); --check is read-only (no
+                gofmt -w; safe for repos you don't want to modify).
+
+  dhnt commit   -m "<msg>" [--test "<cmd>"] <file>...
+                safe-commit: tests must pass, then stage the named files
+                (never -A) and commit. Refuses to commit on red.
+
+  dhnt bump     <submodule>
+                submodule-pin-bump: abort if the submodule has uncommitted
+                or unpushed work, else stage the pointer and commit
+                "sync: bump <submodule> pin".
 `)
 }
 
@@ -92,6 +106,7 @@ func usage() {
 func cmdVerify(args []string) error {
 	fs := flag.NewFlagSet("verify", flag.ExitOnError)
 	test := fs.String("test", "", `override the test command (e.g. "make test")`)
+	check := fs.Bool("check", false, "read-only: do not run gofmt -w")
 	_ = fs.Parse(args)
 	dir := "."
 	if rest := fs.Args(); len(rest) > 0 {
@@ -107,6 +122,9 @@ func cmdVerify(args []string) error {
 		return err
 	}
 	skill := dev.GoVerifySkill()
+	if *check {
+		skill = dev.GoCheckSkill()
+	}
 	att, runErr := skills.Run(skill, env, "go-verify")
 	if files := strings.TrimSpace(sess.Output("fi")); files != "" {
 		fmt.Fprintf(os.Stderr, "unformatted:\n%s\n", files)
@@ -324,6 +342,66 @@ func cmdNormalise(args []string) error {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "wrote %s/SKILL.md and %s/skill.dhnt\n", *out, *out)
+	return nil
+}
+
+// --- commit (safe-commit) ---------------------------------------------
+
+func cmdCommit(args []string) error {
+	fs := flag.NewFlagSet("commit", flag.ExitOnError)
+	msg := fs.String("m", "", "commit message (required)")
+	test := fs.String("test", "", `override the test command (default "go test -short ./...")`)
+	dir := fs.String("dir", ".", "repo directory")
+	_ = fs.Parse(args)
+	files := fs.Args()
+	if *msg == "" || len(files) == 0 {
+		return fmt.Errorf("commit needs -m \"<msg>\" and at least one file")
+	}
+	var testArgv []string
+	if strings.TrimSpace(*test) != "" {
+		testArgv = strings.Fields(*test)
+	}
+	spec := dev.SafeCommitSpec(*dir, *msg, files, testArgv...)
+	env, _, err := dev.NewEnv(spec)
+	if err != nil {
+		return err
+	}
+	skill := dev.SafeCommitSkill()
+	att, runErr := skills.Run(skill, env, "safe-commit")
+	if runErr != nil {
+		return runErr
+	}
+	fmt.Printf("committed: valid=%v consistent=%v\n", att.Valid, att.Consistent(skill))
+	if !att.Valid {
+		os.Exit(1)
+	}
+	return nil
+}
+
+// --- bump (submodule-pin-bump) ----------------------------------------
+
+func cmdBump(args []string) error {
+	fs := flag.NewFlagSet("bump", flag.ExitOnError)
+	dir := fs.String("dir", ".", "umbrella directory")
+	_ = fs.Parse(args)
+	rest := fs.Args()
+	if len(rest) != 1 {
+		return fmt.Errorf("bump needs exactly one <submodule>")
+	}
+	spec := dev.PinBumpSpec(*dir, rest[0])
+	env, _, err := dev.NewEnv(spec)
+	if err != nil {
+		return err
+	}
+	skill := dev.PinBumpSkill()
+	att, runErr := skills.Run(skill, env, "pin-bump")
+	if runErr != nil {
+		return fmt.Errorf("%w (submodule has uncommitted or unpushed work?)", runErr)
+	}
+	fmt.Printf("bumped %s: valid=%v consistent=%v\n", rest[0], att.Valid, att.Consistent(skill))
+	if !att.Valid {
+		os.Exit(1)
+	}
 	return nil
 }
 

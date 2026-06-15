@@ -47,6 +47,25 @@ func GoVerifySkill() skills.Skill {
 	}
 }
 
+// GoCheckSkill is the read-only sibling of go-verify: it omits the
+// `gofmt -w` step (no mutation) but keeps the same contract — fmt-clean ∧
+// vet-clean ∧ tests-green — and a read-only effect cap. Use it to verify a
+// repo you do not want to modify (CI, or another project's working tree).
+func GoCheckSkill() skills.Skill {
+	ref := func(k string) []skills.Arg {
+		return []skills.Arg{{Name: "value", Value: skills.NewRef(k)}}
+	}
+	return skills.Skill{
+		Name:      "gocaki",
+		EffectCap: []skills.Effect{skills.EffRead, skills.EffTime},
+		Contract: []skills.Check{
+			{Predicate: PredEmptyOut, Args: ref(cmdFmtList)}, // fmt-clean
+			{Predicate: PredExit, Args: ref(cmdVet)},         // vet-clean
+			{Predicate: PredExit, Args: ref(cmdTest)},        // tests-green
+		},
+	}
+}
+
 // GoVerifySpec returns the command table for a Go module at dir. testArgv
 // overrides the test command (default: `go test -short ./...`); this is the
 // knob a per-repo branch flips (e.g. to `make test`).
