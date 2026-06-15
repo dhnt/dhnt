@@ -232,6 +232,98 @@ func RunAdaptive(s Skill, env Env, tier string, probes []EnvProbe, store Adaptat
 	return Attestation{}, OutcomeFailed, fmt.Errorf("skills: repair failed after %d attempts: %w", maxA, lastErr)
 }
 
+// Runtime is the self-healing orchestrator: it prefers the host's latest
+// learned version of a skill, runs it (binding the env-match predicate so
+// folded environment branches evaluate), and on failure repairs the fix
+// and FOLDS it into a new version saved to the host overlay — so the next
+// run (this or any agent sharing the store) reuses it, and the skill
+// accretes one branch arm per environment over time.
+type Runtime struct {
+	Glossary *Glossary
+	Lang     string
+	Probes   []EnvProbe
+	Versions VersionStore
+	Repair   *Repairer
+	Tier     string
+}
+
+// Run executes skill against base bindings with self-healing. It returns
+// the attestation, how it resolved (baseline/cached/repaired/failed), and
+// an error on terminal failure.
+func (rt *Runtime) Run(skill Skill, base Env) (Attestation, RunOutcome, error) {
+	rootID, err := Identity(skill)
+	if err != nil {
+		return Attestation{}, OutcomeFailed, err
+	}
+	env := WithEnvPredicate(base, rt.Probes)
+
+	effective := skill
+	fromOverlay := false
+	if rt.Versions != nil {
+		if s, ok := ResolveLatest(rt.Versions, skill); ok {
+			effective, fromOverlay = s, true
+		}
+	}
+
+	att, runErr := Run(effective, env, rt.Tier)
+	if runErr == nil && att.Valid {
+		if fromOverlay {
+			return att, OutcomeCached, nil
+		}
+		return att, OutcomeBaseline, nil
+	}
+
+	if rt.Repair == nil || rt.Repair.Complete == nil {
+		if runErr != nil {
+			return Attestation{}, OutcomeFailed, runErr
+		}
+		return att, OutcomeFailed, fmt.Errorf("skills: contract not satisfied and no repairer")
+	}
+	lang := rt.Lang
+	if lang == "" {
+		lang = "en"
+	}
+	maxA := rt.Repair.MaxAttempts
+	if maxA <= 0 {
+		maxA = 2
+	}
+	lastErr := runErr
+	for attempt := 0; attempt < maxA; attempt++ {
+		cand, perr := rt.Repair.propose(skill, att, runErr)
+		if perr != nil {
+			lastErr = perr
+			continue
+		}
+		// verify the candidate's steps against the ROOT contract + cap.
+		verify := Skill{Name: skill.Name, Caps: skill.Caps, EffectCap: skill.EffectCap, Contract: skill.Contract, Steps: cand.Steps}
+		vatt, verr := Run(verify, env, rt.Tier)
+		if verr == nil && vatt.Valid {
+			// fold the fix onto the current best, keyed on this context.
+			folded, ferr := FoldBranch(effective, EnvMatchCheck(rt.Probes), cand.Steps)
+			if ferr != nil {
+				lastErr = ferr
+				continue
+			}
+			if rt.Versions != nil {
+				if canon, err := LineariseDhnt(folded); err == nil {
+					nid, _ := Identity(folded)
+					_ = rt.Versions.Save(DerivedVersion{
+						ParentID: rootID, ID: nid, Canonical: canon,
+						ContextKey: ContextKey(rt.Probes), Attest: vatt,
+					})
+				}
+			}
+			return vatt, OutcomeRepaired, nil
+		}
+		if verr != nil {
+			lastErr = verr
+		} else {
+			lastErr = fmt.Errorf("candidate failed contract: %v / effects %v", vatt.Failed, vatt.Effects)
+		}
+	}
+	return Attestation{}, OutcomeFailed, fmt.Errorf("skills: self-heal failed after %d attempts: %w", maxA, lastErr)
+}
+
 // propose asks the model for a corrected skill and parses it (loan-word
 // mode, so free-form names are accepted).
 func (r *Repairer) propose(s Skill, att Attestation, runErr error) (Skill, error) {

@@ -19,6 +19,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -130,6 +131,9 @@ func cmdRun(args []string) error {
 	message := fs.String("message", "Reply with exactly one word: PONG", "with --headless: the prompt")
 	specFile := fs.String("spec", "", "tool Spec JSON (custom run)")
 	skillFile := fs.String("skill", "", "canonical .dhnt skill (with --spec; default: DriveOnce)")
+	adapt := fs.Bool("adapt", false, "self-healing: reuse/learn a host-local version of the skill")
+	storeDir := fs.String("store", "", "version overlay dir (default ~/.dhnt/versions)")
+	repairAgent := fs.String("repair-agent", "", "agent CLI used as the repair model (with --adapt)")
 	_ = fs.Parse(args)
 
 	var spec tui.Spec
@@ -178,6 +182,11 @@ func cmdRun(args []string) error {
 		return err
 	}
 	defer sess.Close()
+
+	if *adapt {
+		return runAdaptive(skill, env, sess, tier, *storeDir, *repairAgent)
+	}
+
 	att, runErr := skills.Run(skill, env, tier)
 	if tail := lastLines(sess.Output(), 8); tail != "" {
 		fmt.Fprintf(os.Stderr, "--- output (tail) ---\n%s\n---------------------\n", tail)
@@ -191,6 +200,47 @@ func cmdRun(args []string) error {
 		os.Exit(1)
 	}
 	return nil
+}
+
+// runAdaptive wraps a run with the self-healing Runtime: it prefers a
+// host-local learned version, and (with --repair-agent) repairs+folds on
+// failure. Probes default to OS/arch.
+func runAdaptive(skill skills.Skill, env skills.Env, sess *tui.Session, tier, storeDir, repairAgent string) error {
+	if storeDir == "" {
+		home, _ := os.UserHomeDir()
+		storeDir = filepath.Join(home, ".dhnt", "versions")
+	}
+	g, err := skills.SeedGlossary()
+	if err != nil {
+		return err
+	}
+	rt := &skills.Runtime{
+		Glossary: g, Lang: "en", Tier: tier,
+		Probes:   defaultProbes(),
+		Versions: &skills.FileVersionStore{Dir: storeDir},
+	}
+	if repairAgent != "" {
+		if c, ok := tui.Completer(repairAgent, "", 120*time.Second); ok {
+			rt.Repair = &skills.Repairer{Complete: c, Glossary: g, Lang: "en", MaxAttempts: 2}
+		}
+	}
+	att, outcome, err := rt.Run(skill, env)
+	if tail := lastLines(sess.Output(), 8); tail != "" {
+		fmt.Fprintf(os.Stderr, "--- output (tail) ---\n%s\n---------------------\n", tail)
+	}
+	if err != nil {
+		return err
+	}
+	fmt.Printf("outcome=%s valid=%v consistent=%v passed=%v effects=%v\n",
+		outcome, att.Valid, att.Consistent(skill), att.Passed, att.Effects)
+	if !att.Valid {
+		os.Exit(1)
+	}
+	return nil
+}
+
+func defaultProbes() []skills.EnvProbe {
+	return []skills.EnvProbe{{Name: "os", Value: runtime.GOOS}, {Name: "arch", Value: runtime.GOARCH}}
 }
 
 // --- normalise --------------------------------------------------------

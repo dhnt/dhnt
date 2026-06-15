@@ -326,6 +326,14 @@ catalog is shared/OSS, the change is model-authored, and a fix right for
 one host may be wrong globally — so it belongs in a reviewed branch, not
 an automatic write.
 
+The whole loop is wired in `Runtime` (`{Glossary, Probes, Versions,
+Repair, Tier}`): `Runtime.Run(skill, env)` resolves the host's latest
+version, runs it (binding the env predicate so folded arms evaluate), and
+on failure repairs → verifies → folds → saves — so subsequent runs reuse
+it and the skill accretes one arm per environment (a 5-run / 2-environment
+test does 2 repairs total, the rest served from the overlay). The CLI
+exposes it as `dhnt run --adapt [--repair-agent NAME] [--store DIR]`.
+
 ## 6. Effects (P3) — typed and bounded
 
 Every `primitive` and `predicate` glossary entry declares the effects it may
