@@ -329,6 +329,14 @@ re-checkability of attestations, hold by construction and are covered by tests.
 and not cached.
 \end{itemize}
 
+\paragraph{Reproducible harness.} A suite (\texttt{eval/}) implements E1--E5; its
+hermetic configuration produces illustrative figures---e.g.\ effect containment
+with \emph{zero} false-accepts across the candidate set; self-healing with two
+repairs over five invocations spanning two environments; a deterministic tier
+with a single distinct verdict across repeats while a noisy-but-correct tier
+varies in output but not verdict. Publication numbers require running the same
+harness with live providers and a real task suite, below.
+
 \paragraph{Planned controlled study.}
 \begin{description}[topsep=2pt,itemsep=1pt,leftmargin=2.4em]
 \item[E1 Cross-model convergence.] One skill, $N$ models (including small ones);
