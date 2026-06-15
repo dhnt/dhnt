@@ -1,0 +1,402 @@
+% Copyright 2026 The dhnt Authors. Licensed under Apache-2.0.
+% Build: pdflatex dhnt && pdflatex dhnt   (run twice for references)
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+\lstset{basicstyle=\ttfamily\small,breaklines=true,frame=single,
+  columns=fullflexible,keepspaces=true,xleftmargin=4pt,framexleftmargin=4pt}
+
+\newcommand{\dhnt}{\textsc{dhnt}}
+\newtheorem{proposition}{Proposition}
+\newtheorem{definition}{Definition}
+
+\title{\dhnt{}: Verifiable, Self-Healing Agent Skills\\
+via a Contract-Carrying Controlled Language}
+
+\author{Qiang Li\\
+\texttt{liqiang@gmail.com}\\[2pt]
+\small (affiliation to be added)}
+
+\date{\today\\[4pt]\small Preprint. Reference implementation:
+\url{https://github.com/dhnt/dhnt}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Agent ``skills'' --- the reusable, model-followed procedures now standardized by
+the \texttt{SKILL.md} format and adopted across dozens of agentic tools --- are
+today \emph{natural-language instructions a model interprets}. Their behavior
+varies across models and across runs, their success is judged by the model
+itself (so a wrong-but-plausible result passes silently), and they have no
+stable identity, so a fix discovered on one run is re-discovered on the next.
+We present \dhnt{}, a controlled language and runtime in which a skill is a
+\emph{contract-carrying, content-addressed, typed artifact}. A \dhnt{} skill has
+a canonical form (with a content hash as its identity), a machine-checkable
+\emph{success contract}, a typed and bounded \emph{effect} declaration, and
+portable run \emph{attestations}. We argue and demonstrate that the contract
+functions as a \emph{deterministic oracle}: it makes success verification
+independent of the executing model, bounds and audits side effects, and---most
+distinctively---enables \emph{sound runtime self-improvement}, in which a
+contract-verified repair is cached and folded back into the skill as an
+environment-guarded branch, then reused across agents without re-incurring the
+failure. \dhnt{} round-trips to the \texttt{SKILL.md} standard, so generic tools
+consume a \dhnt{} skill unchanged while \dhnt{}-aware runtimes additionally
+execute and verify it. We describe the language, its determinism and soundness
+properties, a Go reference implementation, and preliminary results; and we
+outline a controlled evaluation of cross-model convergence, effect containment,
+and self-healing amortization.
+\end{abstract}
+
+\section{Introduction}
+
+The agentic-tooling ecosystem has rapidly converged on a shared unit of reusable
+capability: the \emph{skill}. The \texttt{SKILL.md} format---YAML frontmatter, a
+Markdown body, optional bundled scripts, and progressive disclosure---was
+published as an open standard in late 2025 and adopted by dozens of tools within
+months. A skill, in this model, is \emph{prose}: instructions a language model
+reads and interprets.
+
+Prose is a remarkably effective interface, but it has four structural weaknesses
+as a unit of \emph{reliable} capability:
+\begin{enumerate}[topsep=2pt,itemsep=1pt]
+\item \textbf{Non-determinism across models.} The same skill yields different
+behavior on different models/providers.
+\item \textbf{Non-determinism across runs.} Sampling makes even one model vary
+run to run.
+\item \textbf{Unverified success.} ``Did it work?'' is judged by the model; a
+plausible-but-wrong result passes silently.
+\item \textbf{No identity, no memory.} Two phrasings of one procedure are
+unrelated strings; a fix found on one run (e.g.\ adapting a script to a platform
+quirk) is re-discovered on the next, because there is nowhere to durably store a
+\emph{trustworthy} fix.
+\end{enumerate}
+
+We argue these are not deficiencies of skills \emph{per se} but of skills
+expressed only as prose, and that the missing ingredient is a \emph{deterministic
+contract}: a machine-checkable statement of what success means, decided
+identically regardless of who (or which model) executed the skill. With such a
+contract, success becomes verifiable rather than judged; side effects can be
+bounded and audited; and---the key consequence---a learned fix can be cached and
+reused \emph{soundly}, because the contract certifies it.
+
+\paragraph{Contributions.}
+\begin{enumerate}[topsep=2pt,itemsep=1pt]
+\item \textbf{\dhnt{}, a controlled language for skills} in which a skill is a
+typed AST over a closed multilingual glossary, with a canonical, content-addressed
+form and bidirectional projection to human languages (\S\ref{sec:lang}).
+\item \textbf{A contract-and-effect type discipline}: success is a conjunction of
+typed predicates; side effects are a bounded lattice; both are enforced at run
+verification (\S\ref{sec:lang},~\S\ref{sec:attest}).
+\item \textbf{A precise determinism account}: we separate determinism of the
+artifact, of verification, and of execution, and state in what sense weak and
+strong executors \emph{converge} (\S\ref{sec:det}).
+\item \textbf{Portable, re-checkable attestations} of skill runs
+(\S\ref{sec:attest}).
+\item \textbf{Sound runtime self-improvement}: contract-gated, context-keyed
+repair caching and branch accretion, with a soundness argument
+(\S\ref{sec:heal}).
+\item \textbf{Zero-cost interoperability} with the \texttt{SKILL.md} standard via
+graceful degradation (\S\ref{sec:interop}), and a Go reference implementation
+(\S\ref{sec:impl}).
+\end{enumerate}
+
+\section{Background and Related Work}\label{sec:related}
+
+\paragraph{Agent skills and protocols.} The \texttt{SKILL.md} standard
+\cite{agentskills} defines the prevailing skill artifact. Tool- and
+agent-interoperability standards---the Model Context Protocol \cite{mcp},
+Agent-to-Agent \cite{a2a}, and \texttt{AGENTS.md}, now under the Linux
+Foundation's Agentic AI Foundation---standardize \emph{transport and discovery},
+not \emph{procedure semantics}. \dhnt{} is complementary: it specifies what a
+skill \emph{is} and how to verify it, and is designed as an optional profile of
+\texttt{SKILL.md}.
+
+\paragraph{Skill acquisition.} ReAct \cite{react}, Toolformer \cite{toolformer},
+and Voyager \cite{voyager} let agents plan with and accumulate skills. These
+skills are unverified and re-discovered; \dhnt{} contributes verified,
+content-addressed skills with sound reuse.
+
+\paragraph{Contracts and neurosymbolic verification.} Design by Contract
+\cite{meyer} inspires recent work placing a contract layer around LLM calls
+\cite{dbcagent}, verifying instruction-following neuro-symbolically
+\cite{nsverify}, synthesizing specifications \cite{specsynth}, and generating
+verified policies \cite{verafi}. \dhnt{} extends this from a per-call wrapper to
+a full language, interlingua, and runtime with content identity and self-healing.
+
+\paragraph{Controlled natural language.} Attempto Controlled English
+\cite{ace} translates a restricted English into first-order logic for executable
+specifications; Gherkin/BDD pairs readable scenarios with executable steps.
+\dhnt{}'s controlled language adds a content-addressed canonical form,
+multilingual projection, effect typing, and attestation.
+
+\paragraph{Capabilities and attestation.} Effect/permission manifests and
+pre-action authorization for agents \cite{permmanifest} motivate bounding agent
+side effects. Verifiable-build attestation (in-toto \cite{intoto}, SLSA) provides
+the closest analogue to \dhnt{}'s run receipts---signed, re-checkable records of
+\emph{how} an artifact was produced---here applied to skill execution.
+
+\section{Overview}\label{sec:overview}
+
+Consider a release skill: ``ensure the tests pass and the tag is signed.'' As
+prose, a model interprets and executes it; whether it succeeded is the model's
+opinion, and if a step's script breaks on a particular shell version, the model
+may fix it---then forget the fix by the next invocation.
+
+In \dhnt{}, the same skill is the artifact in Figure~\ref{fig:skill}. Its
+\emph{contract} (\texttt{tests-green}, \texttt{tag-signed}) is checked
+mechanically; its \emph{effect cap} (\texttt{\{read, write\}}) bounds what any
+execution may do; its canonical form hashes to a stable \emph{identity}; and a
+run emits an \emph{attestation} anyone can re-check. When a step fails in a given
+environment, a model proposes a fix that is accepted only if it still satisfies
+the original contract within the original effect cap; the fix is then folded into
+the skill as an environment-guarded branch and cached, so the next run---by any
+agent sharing the store---reuses it.
+
+\begin{figure}[t]
+\begin{lstlisting}
+skill release
+  effects read write              # blast radius (P3)
+  ensure tests-green              # success contract (P1)
+  ensure tag-signed
+  step announce print value text
+  when dirty:                     # flow control / playbook
+    step stop abort
+\end{lstlisting}
+\caption{A \dhnt{} skill (English projection). The same artifact has a canonical
+$a$--$z$ form that hashes to its identity and re-parses losslessly, and projects
+into any registered language.}
+\label{fig:skill}
+\end{figure}
+
+\section{The \dhnt{} Language}\label{sec:lang}
+
+\dhnt{} is layered. Free prose (L0) is normalized by a model into a controlled,
+glossary-locked form (L1), which deterministically encodes to a canonical
+$a$--$z$ string (L1.5), which parses to a typed AST (L2), which an executor
+realizes against bindings (L3). Validity is \emph{transpilability}: an expression
+is valid iff it round-trips through L1.5.
+
+\paragraph{Identity (content addressing).} The canonical form is a pure function
+of the AST; its hash is the skill's identity. Equal canonical form $\Rightarrow$
+equal identity, on any machine. This yields cross-model equality, deduplication,
+caching, and lineage---``content addressing for procedures'' \cite{merkle}.
+
+\paragraph{Contract.} A skill carries a set of \emph{checks}, each a typed
+predicate over the glossary. A run is \emph{valid} only if every check evaluates
+to true (the boolean is native to the language's numeral system). The contract
+generalizes an opaque verify-command into a portable, typed predicate.
+
+\paragraph{Effects.} Each primitive/predicate declares effects drawn from a
+closed lattice $\{\textsf{read}, \textsf{write}, \textsf{net}, \textsf{spend},
+\textsf{destroy}, \textsf{time}\}$; a skill declares an upper bound
+(\emph{effect cap}). A run is valid only if its observed effects are a subset of
+the cap.
+
+\paragraph{Steps, latitude, branches, composition.} Steps are leaf actions; each
+carries a \emph{latitude} (exact vs.\ judgement) that tunes how deterministic it
+is. A step may instead be a \emph{branch} (\texttt{when}/\texttt{else}),
+turning a linear runbook into a branching playbook. A step's primitive may
+resolve to another skill (composition); a content-addressed library audits the
+call graph and enforces that a caller's effect cap contains each callee's.
+
+\paragraph{Bidirectionality.} The AST projects into any registered language and
+parses back, so a human may edit any language face and have it re-normalize to
+the single canonical identity.
+
+\section{Determinism}\label{sec:det}
+
+\dhnt{} does not make a language model deterministic. It makes three other things
+deterministic and pushes model non-determinism into explicit, gated places.
+
+\begin{enumerate}[topsep=2pt,itemsep=1pt]
+\item \textbf{Artifact.} Canonical form, AST, identity, and projections are pure
+functions: the same skill yields the same bytes and identity everywhere.
+\item \textbf{Verification.} The contract, the effect-cap check, and the
+attestation are deterministic functions of a run's observed results; whether a
+run satisfied the spec is decided identically for every executor.
+\item \textbf{Execution.} A step bound to a code leaf is deterministic; a step
+bound to a model is as non-deterministic as that model---but is always gated by
+verification.
+\end{enumerate}
+
+\begin{proposition}[Outcome convergence]
+Let $s$ be a skill with contract $C$ and effect cap $E$, executed by tiers
+$t_1,t_2$ producing observed results $r_1,r_2$ and effect sets $F_1,F_2$. The
+validity verdict $V(s,r,F) \equiv C(r)\wedge (F\subseteq E)$ is a deterministic
+predicate; hence $t_1$ and $t_2$ \emph{converge on the success criterion} ($V$
+agrees) whenever they reach states satisfying $C$ within $E$, even if their
+execution paths and outputs differ.
+\end{proposition}
+
+This is the precise sense of ``leveling the playing field'': a weak executor with
+a strong contract and a strong executor with the same contract agree on
+\emph{success}, though not necessarily on output. The choice of how much of a
+skill is code (deterministic) vs.\ model (gated) is the latitude dial.
+
+\paragraph{Caveat.} ``Deterministic'' is relative to \emph{(skill, world-state,
+bindings)}, as for any program; and the L0$\to$L2 normalizer is a model call,
+hence non-deterministic \emph{at authoring time}---but its output is validated and
+then frozen as a deterministic artifact with an identity, as when a model writes
+code that is thereafter run deterministically.
+
+\section{Verifiable Attestation}\label{sec:attest}
+
+A run emits an \emph{attestation}: the skill identity, the executor tier, the
+predicates that passed/failed, the observed effects, an optional world-diff, and
+a validity bit computed (not asserted) as $C(r)\wedge(F\subseteq E)$. Anyone
+holding the skill and the attestation can re-check consistency. Attestations make
+``consistently close'' auditable: success is provable, not hoped for, analogous
+to build attestation \cite{intoto}.
+
+\section{Sound Runtime Self-Improvement}\label{sec:heal}
+
+The contract enables what prose skills cannot do safely: \emph{cache a fix}.
+
+\paragraph{Loop.} Given a skill, a context fingerprint (declared environment
+probes), a store, and a model:
+(1) if a verified variant is cached for \emph{(identity, context)}, run it and
+re-verify; (2) else run the skill as written; (3) else ask the model for a
+repair. A repair is \emph{accepted only if its steps satisfy the original
+contract within the original effect cap}---the verification skill grafts the
+original contract and cap onto the candidate's steps, so the model may change the
+\emph{how} but never the \emph{what}. An accepted repair is cached, and
+\emph{folded} into a new skill version as an environment-guarded branch
+(\texttt{when} env-matches \texttt{then} fix \texttt{else} original). Folds nest,
+so the skill accretes one arm per environment.
+
+\begin{proposition}[Promotion soundness]
+Every variant promoted to the cache satisfies the original contract within the
+original effect cap in the context under which it was promoted; therefore reusing
+a cached variant (after re-verification) never accepts a result the original
+specification would reject, and never exceeds the original blast radius.
+\end{proposition}
+
+This is exactly the property a prose skill lacks: it has no identity to key a
+cache on and no oracle to certify a cached fix, so it must re-interpret each run.
+Where the folded version lives is a deliberate policy: a host-local overlay
+(self-healing host) by default; promotion to a shared catalog is a separate,
+human-reviewed step (the change is model-authored and may be context-specific).
+
+\section{Interoperability with the Agent Skills Standard}\label{sec:interop}
+
+\dhnt{} renders a skill as a standard \texttt{SKILL.md}: frontmatter
+(\texttt{name}, \texttt{description}, \texttt{executor: cnl}) plus a
+self-contained body (constraints from the effect cap, steps---branches rendered
+as if/else, success criteria from the contract) and the embedded canonical form.
+A generic tool reads the description and follows the prose; a \dhnt{}-aware
+runtime executes the canonical form and attests. A tool that does not know
+\dhnt{} ignores the unknown executor. Thus one artifact degrades gracefully, and
+adoption requires \emph{no change} to existing tools (\S\ref{sec:eval}).
+
+\section{Implementation}\label{sec:impl}
+
+The reference implementation is a dependency-light Go module: a core
+\texttt{skills} package (canonical form, parser/lineariser, glossary, contract,
+effects, attestation, composition library, normalizer, exporter, adaptation
+runtime), a PTY executor leaf for driving terminal tools, and a \texttt{dhnt}
+CLI (\texttt{export}, \texttt{run}, \texttt{normalise}, \texttt{promote}). The
+core has no LLM dependency; a model is injected as a \texttt{Completer}, with an
+adapter that uses an existing agent CLI as the model. The spec is published with
+the implementation.
+
+\section{Evaluation}\label{sec:eval}
+
+We report preliminary, reproducible results from the reference implementation and
+outline the controlled study required for full claims. \emph{(Numbers marked
+\textsc{[tbd]} are pending the controlled runs of \S\ref{sec:eval}.)}
+
+\paragraph{Illustrative results (implemented).}
+\begin{itemize}[topsep=2pt,itemsep=1pt]
+\item \textbf{Interoperability.} A \dhnt{}-generated \texttt{SKILL.md} drives
+real terminal tools over a pseudo-terminal: an interactive coding CLI end-to-end
+(spawn, handle a confirmation prompt via a branch, query, exit), and five agent
+CLIs via a token-free version probe, each contract-verified.
+\item \textbf{Self-healing amortization (synthetic).} In a controlled harness, a
+skill that fails in each new environment is repaired once and thereafter reused:
+across five invocations spanning two environments, the system performs exactly
+two repairs, the rest served from the learned, accreted version.
+\item \textbf{Determinism.} Round-trip and idempotence of the canonical form, and
+re-checkability of attestations, hold by construction and are covered by tests.
+\item \textbf{Safety.} Repairs that exceed the declared effect cap are rejected
+and not cached.
+\end{itemize}
+
+\paragraph{Planned controlled study.}
+\begin{description}[topsep=2pt,itemsep=1pt,leftmargin=2.4em]
+\item[E1 Cross-model convergence.] One skill, $N$ models (including small ones);
+measure success rate and output variance \emph{with vs.\ without} the contract
+gate. Hypothesis: the validity verdict's cross-model variance collapses while raw
+output variance does not. \textsc{[tbd]}
+\item[E2 Determinism/repeatability.] Variance across repeated runs for code-leaf
+vs.\ model-leaf skills. \textsc{[tbd]}
+\item[E3 Self-healing on a real task suite.] Cross-platform shell skills;
+report repairs vs.\ invocations and amortized cost. \textsc{[tbd]}
+\item[E4 Effect containment.] Injected unsafe repairs; report containment recall
+/ false-positive rate. \textsc{[tbd]}
+\item[E5 Interop breadth.] Generated \texttt{SKILL.md} executed across $\geq 3$
+standard tools unchanged. \textsc{[tbd]}
+\end{description}
+Baselines: plain prose skills; a Design-by-Contract per-call wrapper
+\cite{dbcagent}. Metrics: success rate, verdict variance, repair amortization,
+containment recall, interop pass rate.
+
+\section{Limitations}\label{sec:limits}
+
+The glossary is closed (mitigated by a deterministic loan-word rule for names);
+rich, multi-branch playbooks authored directly from long prose are not yet
+robust; full-screen interactive TUIs require a capability-answering terminal;
+effect enforcement currently \emph{detects and attests} over-cap effects rather
+than \emph{preventing} them before they land (a sandboxed leaf is future work);
+and the controlled evaluation (\S\ref{sec:eval}) is in progress.
+
+\section{Conclusion}
+
+A deterministic contract is the missing oracle that turns agent skills from
+interpreted prose into verifiable, content-addressed, self-healing, portable
+artifacts---and it can be added \emph{inside} the standard the ecosystem already
+adopted, at near-zero integration cost. \dhnt{} is a controlled language and
+runtime that realizes this, and a candidate verifiable profile of the Agent
+Skills standard.
+
+\begin{thebibliography}{99}
+\small
+\bibitem{agentskills} Anthropic. \emph{Agent Skills} (\texttt{SKILL.md}) open
+standard, 2025. \url{https://www.anthropic.com/news/skills}
+\bibitem{mcp} Anthropic. \emph{Model Context Protocol}, 2024.
+\url{https://modelcontextprotocol.io}
+\bibitem{a2a} Google. \emph{Agent-to-Agent (A2A) Protocol}, 2025 (Linux
+Foundation Agentic AI Foundation).
+\bibitem{react} S. Yao et al. \emph{ReAct: Synergizing Reasoning and Acting in
+Language Models}. arXiv:2210.03629, 2022.
+\bibitem{toolformer} T. Schick et al. \emph{Toolformer}. arXiv:2302.04761, 2023.
+\bibitem{voyager} G. Wang et al. \emph{Voyager: An Open-Ended Embodied Agent with
+Large Language Models}. arXiv:2305.16291, 2023.
+\bibitem{meyer} B. Meyer. \emph{Applying ``Design by Contract''}. IEEE Computer,
+25(10), 1992.
+\bibitem{dbcagent} \emph{A DbC-Inspired Neurosymbolic Layer for Trustworthy Agent
+Design}. arXiv:2508.03665, 2025.
+\bibitem{nsverify} \emph{Neuro-Symbolic Verification on Instruction Following of
+LLMs}. arXiv:2601.17789, 2026.
+\bibitem{specsynth} \emph{Seeking Specifications: The Case for Neuro-Symbolic
+Specification Synthesis}. arXiv:2504.21061, 2025.
+\bibitem{verafi} \emph{VERAFI: Verified Agentic Financial Intelligence through
+Neurosymbolic Policy Generation}. arXiv:2512.14744, 2025.
+\bibitem{permmanifest} \emph{Permission Manifests for Web Agents}.
+arXiv:2601.02371, 2026.
+\bibitem{ace} N. E. Fuchs, R. Schwitter. \emph{Attempto Controlled English
+(ACE)}. CLAW, 1996.
+\bibitem{intoto} S. Torres-Arias et al. \emph{in-toto: Providing Farm-to-Table
+Guarantees for Bits and Bytes}. USENIX Security, 2019.
+\bibitem{merkle} R. C. Merkle. \emph{A Digital Signature Based on a Conventional
+Encryption Function}. CRYPTO, 1987.
+\end{thebibliography}
+
+\end{document}
