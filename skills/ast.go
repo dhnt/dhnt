@@ -32,7 +32,21 @@ type Skill struct {
 	EffectCap []Effect // P3: upper bound on the effects a run may cause
 	Contract  []Check
 	Steps     []Step
+	OnFail    Policy // recovery policy when the contract is not satisfied
 }
+
+// Policy is the declared recovery intent when a run does not satisfy its
+// contract (the typed generalisation of an ad-hoc retry/abort flag). It is
+// honoured by a driver (RunPolicy or the self-healing Runtime), not by the
+// pure single-shot executor. Default PolicyAbort is omitted from Layer 1.5,
+// so pre-policy skills are byte-identical.
+type Policy int
+
+const (
+	PolicyAbort    Policy = iota // stop; the invalid attestation stands (default)
+	PolicyRetry                  // re-attempt the run (bounded) — for flaky/eventual steps
+	PolicyBlockers               // on failure, surface blockers and exit gracefully (no error)
+)
 
 // Check is one contract clause (pillar P1): a predicate invoked with
 // named arguments whose evaluation must yield true (bua) for a run to

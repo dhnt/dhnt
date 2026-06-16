@@ -41,7 +41,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "usage: go run . --real \"<goal>\"")
 			os.Exit(2)
 		}
-		spec = dev.ConductorSpec(".", goal, []string{"claude"}, nil, 3)
+		spec = dev.ConductorSpec(".", goal, []string{"claude"}, nil, nil, 3)
 		tier = "conductor"
 		fmt.Printf("driving the fleet for goal: %q\n", goal)
 	} else {
@@ -50,7 +50,7 @@ func main() {
 		t := dev.Command{Argv: []string{"true"}, Effects: []skills.Effect{skills.EffRead}}
 		f := dev.Command{Argv: []string{"false"}, Effects: []skills.Effect{skills.EffRead}}
 		spec = dev.Spec{Commands: map[string]dev.Command{
-			"pa": t, "bo": f, "re": t, "fa": t, "wo": t, "vo": t, "ru": t, "go": t, "cu": t,
+			"pa": t, "bo": f, "re": t, "fa": t, "wo": t, "vo": t, "ru": t, "go": t, "cu": t, "vi": t,
 		}}
 		fmt.Println("hermetic stub run (no fleet):")
 	}

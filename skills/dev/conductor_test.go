@@ -36,6 +36,7 @@ func conductorSpec(over map[string]dev.Command) dev.Spec {
 		"ru": cmd("true"),  // RETRO
 		"go": cmd("true"),  // goal-met
 		"cu": cmd("true"),  // converged
+		"vi": cmd("true"),  // reviewed
 	}
 	for k, v := range over {
 		base[k] = v
@@ -201,6 +202,31 @@ func TestConductor_JudgeUnboundWithoutCompleter(t *testing.T) {
 	}
 	if _, err := runJudge(t, conductorSpec(nil)); err == nil {
 		t.Errorf("expected error running judge skill without a Spec.Judge completer")
+	}
+}
+
+func TestConductor_ReviewFails(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX true/false")
+	}
+	att, err := runConductor(t, conductorSpec(map[string]dev.Command{"vi": cmd("false")}))
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if att.Valid {
+		t.Errorf("review gate failed but skill reported valid")
+	}
+	if !slices.Contains(att.Failed, "exito(value=vi)") {
+		t.Errorf("expected review check in Failed; got %v", att.Failed)
+	}
+}
+
+func TestConductor_DeclaresBlockersPolicy(t *testing.T) {
+	if got := dev.ConductorSkill().OnFail; got != skills.PolicyBlockers {
+		t.Errorf("ConductorSkill OnFail = %v, want PolicyBlockers", got)
+	}
+	if got := dev.ConductorJudgeSkill().OnFail; got != skills.PolicyBlockers {
+		t.Errorf("ConductorJudgeSkill OnFail = %v, want PolicyBlockers", got)
 	}
 }
 

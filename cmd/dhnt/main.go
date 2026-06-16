@@ -433,10 +433,14 @@ func cmdConductor(args []string) error {
 	fs := flag.NewFlagSet("conductor", flag.ExitOnError)
 	goal := fs.String("goal", "", "the goal to drive to completion (required)")
 	verify := fs.String("verify", "", `goal verifier command; exit 0 ⇔ done (default: all queued work merged)`)
+	review := fs.String("review", "", `independent post-convergence review command (default: re-run --verify)`)
 	roster := fs.String("roster", "claude", "comma-separated agent CLIs to enlist (claude,codex,gemini,opencode,aider)")
 	threshold := fs.Int("complex-threshold", 3, "queued-issue count above which the research phase runs")
 	judge := fs.Bool("judge", false, "judge goal-met with a model (for goals with no exit-coded verifier) instead of --verify")
 	judgeAgent := fs.String("judge-agent", "gemini", "agent CLI used as the goal-met judge (with --judge)")
+	adapt := fs.Bool("adapt", false, "self-healing: prefer/learn a host-local version of the orchestration (RETRO→learn loop)")
+	repairAgent := fs.String("repair-agent", "", "agent CLI used as the repair model (with --adapt)")
+	storeDir := fs.String("store", "", "version overlay dir (default ~/.dhnt/versions)")
 	_ = fs.Parse(args)
 	if strings.TrimSpace(*goal) == "" {
 		return fmt.Errorf("conductor needs --goal \"<text>\"")
@@ -445,9 +449,12 @@ func cmdConductor(args []string) error {
 	if rest := fs.Args(); len(rest) > 0 {
 		dir = rest[0]
 	}
-	var verifyArgv []string
+	var verifyArgv, reviewArgv []string
 	if strings.TrimSpace(*verify) != "" {
 		verifyArgv = strings.Fields(*verify)
+	}
+	if strings.TrimSpace(*review) != "" {
+		reviewArgv = strings.Fields(*review)
 	}
 	var rosterList []string
 	for _, a := range strings.Split(*roster, ",") {
@@ -455,27 +462,66 @@ func cmdConductor(args []string) error {
 			rosterList = append(rosterList, a)
 		}
 	}
-	spec := dev.ConductorSpec(dir, *goal, rosterList, verifyArgv, *threshold)
+	spec := dev.ConductorSpec(dir, *goal, rosterList, verifyArgv, reviewArgv, *threshold)
 	skill := dev.ConductorSkill()
 	if *judge {
 		complete, ok := tui.Completer(*judgeAgent, dir, 120*time.Second)
 		if !ok {
 			return fmt.Errorf("unknown judge agent %q", *judgeAgent)
 		}
-		spec = dev.ConductorJudgeSpec(dir, *goal, rosterList, nil, complete, *threshold)
+		spec = dev.ConductorJudgeSpec(dir, *goal, rosterList, nil, reviewArgv, complete, *threshold)
 		skill = dev.ConductorJudgeSkill()
 	}
 	env, _, err := dev.NewEnv(spec)
 	if err != nil {
 		return err
 	}
-	att, runErr := skills.Run(skill, env, "conductor")
-	if runErr != nil {
-		return runErr
+
+	var att skills.Attestation
+	var outcome skills.RunOutcome
+	if *adapt {
+		// RETRO→learn loop: prefer the host's learned orchestration, and on
+		// failure repair+fold a verified variant into the host overlay.
+		if *storeDir == "" {
+			home, _ := os.UserHomeDir()
+			*storeDir = filepath.Join(home, ".dhnt", "versions")
+		}
+		g, gerr := skills.SeedGlossary()
+		if gerr != nil {
+			return gerr
+		}
+		rt := &skills.Runtime{
+			Glossary: g, Lang: "en", Tier: "conductor",
+			Probes:   defaultProbes(),
+			Versions: &skills.FileVersionStore{Dir: *storeDir},
+		}
+		if *repairAgent != "" {
+			if c, ok := tui.Completer(*repairAgent, dir, 120*time.Second); ok {
+				rt.Repair = &skills.Repairer{Complete: c, Glossary: g, Lang: "en", MaxAttempts: 2}
+			}
+		}
+		att, outcome, err = rt.Run(skill, env)
+	} else {
+		// Honour the skill's OnFail policy (conductor declares Blockers).
+		att, outcome, err = skills.RunPolicy(skill, env, "conductor", 2)
 	}
-	fmt.Printf("valid=%v consistent=%v passed=%v failed=%v effects=%v\n",
-		att.Valid, att.Consistent(skill), att.Passed, att.Failed, att.Effects)
+
+	// Disposition. Under PolicyBlockers an unmet goal is not a crash: surface
+	// the blockers and exit 0 — each run makes progress; re-invoke to continue.
+	if err != nil {
+		if skill.OnFail == skills.PolicyBlockers {
+			fmt.Printf("conductor: goal not yet met (%s) — re-run to continue. blocker: %v\n", outcome, err)
+			return nil
+		}
+		return err
+	}
+	fmt.Printf("outcome=%s valid=%v consistent=%v passed=%v failed=%v effects=%v\n",
+		outcome, att.Valid, att.Consistent(skill), att.Passed, att.Failed, att.Effects)
 	if !att.Valid {
+		if skill.OnFail == skills.PolicyBlockers {
+			fmt.Printf("conductor: goal not yet met — blockers: %v. re-run to continue.\n", att.Failed)
+			return nil
+		}
 		os.Exit(1)
 	}
 	return nil

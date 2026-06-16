@@ -102,6 +102,7 @@ var langKeyword = map[string]bool{
 	keywordWhen:   true,
 	keywordElse:   true,
 	keywordEnd:    true, // appears in Layer 1 only as a branch terminator
+	keywordOnFail: true,
 }
 
 func isLangKeyword(t string) bool { return langKeyword[t] }
@@ -190,6 +191,17 @@ func (p *langParser) parse() (Skill, error) {
 				return Skill{}, err
 			}
 			s.Steps = append(s.Steps, Step{Branch: br})
+		case keywordOnFail:
+			p.pos++ // consume keywordOnFail
+			atom, ok := p.next()
+			if !ok || isLangKeyword(atom) {
+				return Skill{}, fmt.Errorf("skills: on-fail expects a policy")
+			}
+			pol, err := parsePolicyAtom(atom)
+			if err != nil {
+				return Skill{}, err
+			}
+			s.OnFail = pol
 		default:
 			return Skill{}, fmt.Errorf("skills: unexpected token %q in Layer 1 body", kw)
 		}

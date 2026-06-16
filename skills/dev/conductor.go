@@ -53,56 +53,67 @@ const (
 	cmdRetro     = "ru" // ycode weave list --summary — tool report card / learn
 	cmdGoalMet   = "go" // the user goal verifier — exit 0 ⇔ goal achieved (the spine)
 	cmdConverged = "cu" // exit 0 ⇔ no open/unmerged work remains
+	cmdReview    = "vi" // independent post-convergence review — exit 0 ⇔ merged result is clean
 )
 
-// ConductorSkill is the goal-oriented orchestrator. PLAN files the work;
-// RESEARCH runs only when the goal is complex (a branch); FAN-OUT enlists
-// the team; STEER and CONVERGE shepherd them; RETRO captures what was
-// learned. The Contract — the spine — is goal-met ∧ converged: the run is
-// valid only if the user's goal verifier passes AND all dispatched work
-// has merged. RESEARCH and STEER carry latitude=judge (bounded judgement);
-// the rest are deterministic command steps.
-func ConductorSkill() skills.Skill {
+// conductorSteps is the shared phase body of every conductor variant:
+// PLAN files the work; RESEARCH runs only when the goal is complex (a
+// branch); FAN-OUT enlists the team; STEER and CONVERGE shepherd them;
+// RETRO captures what was learned. RESEARCH and STEER carry latitude=judge
+// (bounded judgement); the rest are deterministic command steps.
+func conductorSteps() []skills.Step {
+	return []skills.Step{
+		{Name: "sa", Primitive: PrimRun, Args: ref(cmdPlan)}, // PLAN: decompose + queue
+		{Name: "se", Branch: &skills.Branch{ // RESEARCH only when the goal is complex
+			Cond: skills.Check{Predicate: PredExit, Args: ref(cmdComplex)},
+			Then: []skills.Step{
+				{Name: "si", Primitive: PrimRun, Latitude: skills.LatJudge, Args: ref(cmdResearch)},
+			},
+		}},
+		{Name: "so", Primitive: PrimRun, Args: ref(cmdFanout)},                           // FAN-OUT: enlist the team
+		{Name: "su", Primitive: PrimRun, Latitude: skills.LatJudge, Args: ref(cmdSteer)}, // STEER (judgement)
+		{Name: "ta", Primitive: PrimRun, Args: ref(cmdConverge)},                         // CONVERGE: wait + pull verified
+		{Name: "te", Primitive: PrimRun, Args: ref(cmdRetro)},                            // RETRO: report card / learn
+	}
+}
+
+// conductorSkill builds a conductor with the given goal-met predicate (the
+// only axis that varies between the deterministic and judge variants). The
+// Contract — the spine — is goal-met ∧ converged ∧ reviewed: a run is valid
+// only if the goal holds, all dispatched work has merged, AND an
+// independent post-convergence review of the merged result passes (the
+// regression gate, so a merged combination that breaks the tree is caught
+// before accept). OnFail is PolicyBlockers: an unmet goal surfaces blockers
+// and exits gracefully rather than crashing — each run makes progress,
+// re-invoke to continue (the "goal-oriented until done" loop).
+func conductorSkill(goalPredicate string) skills.Skill {
 	return skills.Skill{
 		Name: "coniducatoro", // = dhnt.EncodeWord("conductor")
 		EffectCap: []skills.Effect{
 			skills.EffRead, skills.EffWrite, skills.EffNet, skills.EffSpend, skills.EffTime,
 		},
-		Steps: []skills.Step{
-			{Name: "sa", Primitive: PrimRun, Args: ref(cmdPlan)}, // PLAN: decompose + queue
-			{Name: "se", Branch: &skills.Branch{ // RESEARCH only when the goal is complex
-				Cond: skills.Check{Predicate: PredExit, Args: ref(cmdComplex)},
-				Then: []skills.Step{
-					{Name: "si", Primitive: PrimRun, Latitude: skills.LatJudge, Args: ref(cmdResearch)},
-				},
-			}},
-			{Name: "so", Primitive: PrimRun, Args: ref(cmdFanout)},                           // FAN-OUT: enlist the team
-			{Name: "su", Primitive: PrimRun, Latitude: skills.LatJudge, Args: ref(cmdSteer)}, // STEER (judgement)
-			{Name: "ta", Primitive: PrimRun, Args: ref(cmdConverge)},                         // CONVERGE: wait + pull verified
-			{Name: "te", Primitive: PrimRun, Args: ref(cmdRetro)},                            // RETRO: report card / learn
-		},
+		Steps: conductorSteps(),
 		Contract: []skills.Check{
-			{Predicate: PredExit, Args: ref(cmdGoalMet)},   // the goal holds (the spine)
-			{Predicate: PredExit, Args: ref(cmdConverged)}, // ∧ all dispatched work converged
+			{Predicate: goalPredicate, Args: ref(cmdGoalMet)}, // the goal holds (the spine)
+			{Predicate: PredExit, Args: ref(cmdConverged)},    // ∧ all dispatched work converged
+			{Predicate: PredExit, Args: ref(cmdReview)},       // ∧ merged result passes review
 		},
+		OnFail: skills.PolicyBlockers,
 	}
 }
+
+// ConductorSkill is the goal-oriented orchestrator with a deterministic,
+// exit-coded goal-met gate (a verify command).
+func ConductorSkill() skills.Skill { return conductorSkill(PredExit) }
 
 // ConductorJudgeSkill is the conductor variant whose goal-met check is a
 // model JUDGE (PredJudge) instead of a deterministic exit code: for goals
 // with no clean pass/fail verifier, an agent reads the evidence (the
 // converged work) and judges whether the goal is achieved. The convergence
-// gate stays deterministic (exit-coded), and the phases are identical. A
-// different contract means a different content address — this is a distinct
-// skill from ConductorSkill, not a reconfiguration of it.
-func ConductorJudgeSkill() skills.Skill {
-	s := ConductorSkill()
-	s.Contract = []skills.Check{
-		{Predicate: PredJudge, Args: ref(cmdGoalMet)},  // the goal is judged met (the spine)
-		{Predicate: PredExit, Args: ref(cmdConverged)}, // ∧ all dispatched work converged
-	}
-	return s
-}
+// and review gates stay deterministic (exit-coded), and the phases are
+// identical. A different contract means a different content address — this
+// is a distinct skill from ConductorSkill, not a reconfiguration of it.
+func ConductorJudgeSkill() skills.Skill { return conductorSkill(PredJudge) }
 
 // agentHeadlessArgv returns the one-shot (headless) argv for a catalogued
 // agent CLI. It is intentionally a small local table rather than a
@@ -133,7 +144,7 @@ func agentHeadlessArgv(agent, prompt string) []string {
 // text is injected via the process environment (GOAL=…), never embedded in
 // an argv string — the same discipline that keeps free text out of the
 // canonical skill.
-func ConductorSpec(dir, goal string, roster, verifyArgv []string, complexThreshold int) Spec {
+func ConductorSpec(dir, goal string, roster, verifyArgv, reviewArgv []string, complexThreshold int) Spec {
 	if complexThreshold <= 0 {
 		complexThreshold = 3
 	}
@@ -145,6 +156,12 @@ func ConductorSpec(dir, goal string, roster, verifyArgv []string, complexThresho
 		`test "$(ycode weave list --json | jq '[.[] | select(.state != "merged")] | length')" -eq 0`}
 	if len(verifyArgv) == 0 {
 		verifyArgv = convergedArgv
+	}
+	// The review gate defaults to re-running the goal verifier on the
+	// merged result (a post-convergence regression check); a distinct
+	// --review (linter / code-review / smoke) makes it an independent gate.
+	if len(reviewArgv) == 0 {
+		reviewArgv = verifyArgv
 	}
 	research := agentHeadlessArgv(tool, "Research approaches, prior art, and risks for: "+goal)
 	fanout := []string{"sh", "-c",
@@ -191,6 +208,10 @@ func ConductorSpec(dir, goal string, roster, verifyArgv []string, complexThresho
 				Argv:    convergedArgv,
 				Effects: []skills.Effect{skills.EffRead, skills.EffNet},
 			},
+			cmdReview: {
+				Argv:    reviewArgv,
+				Effects: []skills.Effect{skills.EffRead, skills.EffTime},
+			},
 		},
 	}
 }
@@ -201,8 +222,8 @@ func ConductorSpec(dir, goal string, roster, verifyArgv []string, complexThresho
 // completer, and Spec.Goal/Spec.Judge are set so the `judged` predicate is
 // bound. evidenceArgv overrides the default evidence command. Use this with
 // ConductorJudgeSkill.
-func ConductorJudgeSpec(dir, goal string, roster, evidenceArgv []string, judge skills.Completer, complexThreshold int) Spec {
-	spec := ConductorSpec(dir, goal, roster, nil, complexThreshold)
+func ConductorJudgeSpec(dir, goal string, roster, evidenceArgv, reviewArgv []string, judge skills.Completer, complexThreshold int) Spec {
+	spec := ConductorSpec(dir, goal, roster, nil, reviewArgv, complexThreshold)
 	if len(evidenceArgv) == 0 {
 		evidenceArgv = []string{"sh", "-c", `ycode weave list --summary 2>/dev/null; echo '--- recent commits ---'; git log --oneline -10 2>/dev/null`}
 	}

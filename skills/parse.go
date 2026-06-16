@@ -125,6 +125,12 @@ func (p *parser) parseSkill() (Skill, error) {
 				return Skill{}, err
 			}
 			skill.Steps = append(skill.Steps, Step{Branch: br})
+		case keywordOnFail:
+			pol, err := p.parseOnFail()
+			if err != nil {
+				return Skill{}, err
+			}
+			skill.OnFail = pol
 		default:
 			return Skill{}, fmt.Errorf("skills: unexpected token %q in skill body", tok)
 		}
@@ -283,6 +289,40 @@ func (p *parser) parseBranch() (*Branch, error) {
 		return nil, err
 	}
 	return br, nil
+}
+
+// parseOnFail parses `onifaili <policy> fini`; the cursor is on the
+// onifaili keyword.
+func (p *parser) parseOnFail() (Policy, error) {
+	if err := p.expect(keywordOnFail); err != nil {
+		return 0, err
+	}
+	atom, ok := p.next()
+	if !ok {
+		return 0, fmt.Errorf("skills: expected a policy after %q", keywordOnFail)
+	}
+	pol, err := parsePolicyAtom(atom)
+	if err != nil {
+		return 0, err
+	}
+	if err := p.expect(keywordEnd); err != nil {
+		return 0, err
+	}
+	return pol, nil
+}
+
+// parsePolicyAtom maps a Layer 1.5 on-fail atom to a Policy.
+func parsePolicyAtom(tok string) (Policy, error) {
+	switch tok {
+	case policyAbort:
+		return PolicyAbort, nil
+	case policyRetry:
+		return PolicyRetry, nil
+	case policyBlockers:
+		return PolicyBlockers, nil
+	default:
+		return 0, fmt.Errorf("unknown on-fail policy %q", tok)
+	}
 }
 
 // parseLatitudeAtom maps a Layer 1.5 latitude atom to a Latitude.

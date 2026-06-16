@@ -36,7 +36,25 @@ const (
 	latKeyword = "latitude" // reserved step arg name for the P4 dial
 	latExact   = "exacato"  // dhnt of "exact"
 	latJudge   = "judage"   // dhnt of "judge"
+
+	keywordOnFail  = "onifaili"     // dhnt of "on-fail" — the recovery policy block
+	policyAbort    = "aboroto"      // dhnt of "abort"
+	policyRetry    = "retoroyu"     // dhnt of "retry"
+	policyBlockers = "balocakeroso" // dhnt of "blockers"
 )
+
+// policyAtom maps a Policy to its Layer 1.5 atom. Only non-default
+// (anything but PolicyAbort) is ever emitted.
+func policyAtom(p Policy) string {
+	switch p {
+	case PolicyRetry:
+		return policyRetry
+	case PolicyBlockers:
+		return policyBlockers
+	default:
+		return policyAbort
+	}
+}
 
 // latAtom maps a Latitude to its Layer 1.5 atom. Only non-default
 // (LatJudge) is ever emitted.
@@ -124,6 +142,15 @@ func LineariseDhnt(s Skill) (string, error) {
 
 	if err := lineariseStepsDhnt(&b, s.Steps); err != nil {
 		return "", err
+	}
+
+	if s.OnFail != PolicyAbort {
+		b.WriteByte(' ')
+		b.WriteString(keywordOnFail)
+		b.WriteByte(' ')
+		b.WriteString(policyAtom(s.OnFail))
+		b.WriteByte(' ')
+		b.WriteString(keywordEnd)
 	}
 
 	b.WriteByte(' ')
@@ -287,6 +314,16 @@ func LineariseLang(s Skill, g *Glossary, lang string) (string, error) {
 
 	if err := lineariseStepsLang(&b, resolve, s.Steps); err != nil {
 		return "", err
+	}
+
+	// Layer 1 has no `fini` terminators outside branches; the on-fail block
+	// is a trailing keyword + atom (like needs/effect), closed by the next
+	// keyword or end-of-input.
+	if s.OnFail != PolicyAbort {
+		b.WriteByte(' ')
+		b.WriteString(resolve(keywordOnFail))
+		b.WriteByte(' ')
+		b.WriteString(resolve(policyAtom(s.OnFail)))
 	}
 	return b.String(), nil
 }
