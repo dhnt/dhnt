@@ -30,7 +30,15 @@ func main() {
 	id, _ := skills.Identity(skill)
 	canon, _ := skills.LineariseDhnt(skill)
 	fmt.Printf("conductor (%s…)\n", id[:14])
-	fmt.Printf("canonical: %s\n\n", canon)
+	fmt.Printf("canonical: %s\n", canon)
+
+	// P6 composition audit: the fleet dispatches per-task sub-skills, each
+	// carrying its own contract; effect containment is provable statically.
+	lib, composed := dev.ConductorLibrary()
+	if clo, err := lib.Closure(composed); err == nil {
+		viol, _ := lib.EffectViolations(composed)
+		fmt.Printf("composition: closure=%v effect-violations=%d (task cap ⊆ conductor cap)\n\n", clo, len(viol))
+	}
 
 	real := len(os.Args) > 1 && os.Args[1] == "--real"
 	var spec dev.Spec
@@ -51,6 +59,7 @@ func main() {
 		f := dev.Command{Argv: []string{"false"}, Effects: []skills.Effect{skills.EffRead}}
 		spec = dev.Spec{Commands: map[string]dev.Command{
 			"pa": t, "bo": f, "re": t, "fa": t, "wo": t, "vo": t, "ru": t, "go": t, "cu": t, "vi": t,
+			"ni": f, "lo": t, "tu": f, "ke": t, // router arms: not-single→fleet, not-stuck→no escalate
 		}}
 		fmt.Println("hermetic stub run (no fleet):")
 	}

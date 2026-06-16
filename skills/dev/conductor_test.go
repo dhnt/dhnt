@@ -37,6 +37,10 @@ func conductorSpec(over map[string]dev.Command) dev.Spec {
 		"go": cmd("true"),  // goal-met
 		"cu": cmd("true"),  // converged
 		"vi": cmd("true"),  // reviewed
+		"ni": cmd("false"), // not a single issue → route to FLEET (the common case)
+		"lo": cmd("true"),  // SOLO arm
+		"tu": cmd("false"), // not stuck → ESCALATE skipped
+		"ke": cmd("true"),  // ESCALATE arm
 	}
 	for k, v := range over {
 		base[k] = v
@@ -218,6 +222,93 @@ func TestConductor_ReviewFails(t *testing.T) {
 	}
 	if !slices.Contains(att.Failed, "exito(value=vi)") {
 		t.Errorf("expected review check in Failed; got %v", att.Failed)
+	}
+}
+
+// TestConductor_FanoutRouting proves the 2-way fan-out router: one open
+// issue routes to SOLO, multiple route to FLEET (the else arm). Each arm's
+// stub touches a distinct sentinel.
+func TestConductor_FanoutRouting(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX sh/touch")
+	}
+	for _, tc := range []struct {
+		name      string
+		single    string // ni command
+		wantSolo  bool
+		wantFleet bool
+	}{
+		{"single-issue-routes-solo", "true", true, false},
+		{"many-issues-route-fleet", "false", false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			soloMark := filepath.Join(dir, "solo.marker")
+			fleetMark := filepath.Join(dir, "fleet.marker")
+			spec := conductorSpec(map[string]dev.Command{
+				"ni": cmd(tc.single),
+				"lo": cmd("sh", "-c", "touch "+soloMark),
+				"fa": cmd("sh", "-c", "touch "+fleetMark),
+			})
+			spec.Dir = dir
+			att, err := runConductor(t, spec)
+			if err != nil {
+				t.Fatalf("run: %v", err)
+			}
+			if !att.Valid {
+				t.Fatalf("expected valid; att=%+v", att)
+			}
+			if _, e := os.Stat(soloMark); (e == nil) != tc.wantSolo {
+				t.Errorf("solo-ran=%v, want %v", e == nil, tc.wantSolo)
+			}
+			if _, e := os.Stat(fleetMark); (e == nil) != tc.wantFleet {
+				t.Errorf("fleet-ran=%v, want %v", e == nil, tc.wantFleet)
+			}
+		})
+	}
+}
+
+// TestConductor_Composition proves the per-task P6 composition: the
+// composed conductor's closure includes the task skill, and effect
+// containment holds (the task's cap is within the conductor's).
+func TestConductor_Composition(t *testing.T) {
+	lib, composed := dev.ConductorLibrary()
+	clo, err := lib.Closure(composed)
+	if err != nil {
+		t.Fatalf("closure: %v", err)
+	}
+	if !slices.Contains(clo, dev.ConductorTaskSkill().Name) {
+		t.Errorf("closure %v should include the task skill %q", clo, dev.ConductorTaskSkill().Name)
+	}
+	viol, err := lib.EffectViolations(composed)
+	if err != nil {
+		t.Fatalf("effect-violations: %v", err)
+	}
+	if len(viol) != 0 {
+		t.Errorf("expected no effect violations (task cap ⊆ conductor cap), got %v", viol)
+	}
+}
+
+// TestConductor_CompositionCatchesOverCapTask proves the audit is real: a
+// task whose effect cap exceeds the conductor's (here: destroy) is reported
+// as a violation.
+func TestConductor_CompositionCatchesOverCapTask(t *testing.T) {
+	lib := skills.NewLibrary()
+	bad := dev.ConductorTaskSkill()
+	bad.EffectCap = append(bad.EffectCap, skills.EffDestroy) // wider than conductor's cap
+	if err := lib.Add(bad); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	composed := dev.ConductorComposedSkill()
+	if err := lib.Add(composed); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	viol, err := lib.EffectViolations(composed)
+	if err != nil {
+		t.Fatalf("effect-violations: %v", err)
+	}
+	if len(viol) == 0 {
+		t.Errorf("an over-cap task should be reported as a violation")
 	}
 }
 

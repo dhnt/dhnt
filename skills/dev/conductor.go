@@ -54,6 +54,10 @@ const (
 	cmdGoalMet   = "go" // the user goal verifier — exit 0 ⇔ goal achieved (the spine)
 	cmdConverged = "cu" // exit 0 ⇔ no open/unmerged work remains
 	cmdReview    = "vi" // independent post-convergence review — exit 0 ⇔ merged result is clean
+	cmdSingle    = "ni" // exactly one open issue? (exit 0 ⇒ route to SOLO, else FLEET)
+	cmdSolo      = "lo" // ycode weave start — drive a single agent (no fan-out overhead)
+	cmdStuck     = "tu" // any worker stuck/blocked? (exit 0 ⇒ ESCALATE)
+	cmdEscalate  = "ke" // nudge stuck workers (weave say) — the routed escalation arm
 )
 
 // conductorSteps is the shared phase body of every conductor variant:
@@ -64,16 +68,30 @@ const (
 func conductorSteps() []skills.Step {
 	return []skills.Step{
 		{Name: "sa", Primitive: PrimRun, Args: ref(cmdPlan)}, // PLAN: decompose + queue
-		{Name: "se", Branch: &skills.Branch{ // RESEARCH only when the goal is complex
+		{Branch: &skills.Branch{ // RESEARCH only when the goal is complex
 			Cond: skills.Check{Predicate: PredExit, Args: ref(cmdComplex)},
 			Then: []skills.Step{
 				{Name: "si", Primitive: PrimRun, Latitude: skills.LatJudge, Args: ref(cmdResearch)},
 			},
 		}},
-		{Name: "so", Primitive: PrimRun, Args: ref(cmdFanout)},                           // FAN-OUT: enlist the team
+		{Branch: &skills.Branch{ // ROUTE fan-out by scale: one issue → solo, many → fleet
+			Cond: skills.Check{Predicate: PredExit, Args: ref(cmdSingle)},
+			Then: []skills.Step{
+				{Name: "so", Primitive: PrimRun, Args: ref(cmdSolo)}, // SOLO: one agent, no fan-out overhead
+			},
+			Else: []skills.Step{
+				{Name: "fo", Primitive: PrimRun, Args: ref(cmdFanout)}, // FLEET: fan out one agent per issue
+			},
+		}},
 		{Name: "su", Primitive: PrimRun, Latitude: skills.LatJudge, Args: ref(cmdSteer)}, // STEER (judgement)
-		{Name: "ta", Primitive: PrimRun, Args: ref(cmdConverge)},                         // CONVERGE: wait + pull verified
-		{Name: "te", Primitive: PrimRun, Args: ref(cmdRetro)},                            // RETRO: report card / learn
+		{Branch: &skills.Branch{ // ESCALATE only when workers are stuck/blocked
+			Cond: skills.Check{Predicate: PredExit, Args: ref(cmdStuck)},
+			Then: []skills.Step{
+				{Name: "ne", Primitive: PrimRun, Latitude: skills.LatJudge, Args: ref(cmdEscalate)}, // nudge stuck
+			},
+		}},
+		{Name: "ta", Primitive: PrimRun, Args: ref(cmdConverge)}, // CONVERGE: wait + pull verified
+		{Name: "te", Primitive: PrimRun, Args: ref(cmdRetro)},    // RETRO: report card / learn
 	}
 }
 
@@ -167,6 +185,10 @@ func ConductorSpec(dir, goal string, roster, verifyArgv, reviewArgv []string, co
 	fanout := []string{"sh", "-c",
 		`ycode weave list --json | jq -r '.[] | select(.state == "todo") | .number' | ` +
 			`while read n; do ycode weave start --issue "$n" -- ` + tool + ` & done; wait`}
+	solo := []string{"sh", "-c", `ycode weave start -- ` + tool}
+	escalate := []string{"sh", "-c",
+		`for n in $(ycode weave list --json | jq -r '.[] | select(.state == "blocked") | .number'); do ` +
+			`ycode weave say "$n" "you appear blocked — continue, or write a BLOCKERS note and exit"; done`}
 	return Spec{
 		Dir:     dir,
 		Timeout: 60 * time.Minute,
@@ -193,6 +215,22 @@ func ConductorSpec(dir, goal string, roster, verifyArgv, reviewArgv []string, co
 			cmdFanout: {
 				Argv:    fanout,
 				Effects: []skills.Effect{skills.EffWrite, skills.EffNet, skills.EffSpend, skills.EffTime},
+			},
+			cmdSingle: {
+				Argv:    []string{"sh", "-c", `test "$(ycode weave list --json | jq '[.[] | select(.state == "todo")] | length')" -eq 1`},
+				Effects: []skills.Effect{skills.EffRead, skills.EffNet},
+			},
+			cmdSolo: {
+				Argv:    solo,
+				Effects: []skills.Effect{skills.EffWrite, skills.EffNet, skills.EffSpend, skills.EffTime},
+			},
+			cmdStuck: {
+				Argv:    []string{"sh", "-c", `test "$(ycode weave list --json | jq '[.[] | select(.state == "blocked")] | length')" -gt 0`},
+				Effects: []skills.Effect{skills.EffRead, skills.EffNet},
+			},
+			cmdEscalate: {
+				Argv:    escalate,
+				Effects: []skills.Effect{skills.EffWrite, skills.EffNet, skills.EffTime},
 			},
 			cmdSteer: {
 				Argv:    []string{"ycode", "weave", "list"},
@@ -240,4 +278,74 @@ func ConductorJudgeSpec(dir, goal string, roster, evidenceArgv, reviewArgv []str
 	spec.Goal = goal
 	spec.Judge = judge
 	return spec
+}
+
+// --- per-task contracts (P6 composition) ------------------------------
+
+// Command ids for the per-task contract skill.
+const (
+	cmdTaskGreen = "va" // the task's own tests pass (its expected output)
+	cmdCommitted = "mi" // the task's work is committed
+)
+
+// ConductorTaskSkill is the per-task contract template — the dhnt analogue
+// of CrewAI's per-task expected_output: what ONE enlisted task must satisfy
+// (its scoped tests pass AND the work is committed), within a task-sized
+// effect cap {read, write, time}. Conductor composes it (pillar P6): the
+// fleet dispatches one task per issue, each gated by this contract. Because
+// a task's cap is a subset of the conductor's, Library.EffectViolations can
+// prove statically that composing tasks never widens the orchestrator's
+// blast radius.
+func ConductorTaskSkill() skills.Skill {
+	return skills.Skill{
+		Name:      "tasoki", // = dhnt.EncodeWord("task")
+		EffectCap: []skills.Effect{skills.EffRead, skills.EffWrite, skills.EffTime},
+		Contract: []skills.Check{
+			{Predicate: PredExit, Args: ref(cmdTaskGreen)}, // expected output: tests green
+			{Predicate: PredExit, Args: ref(cmdCommitted)}, // work committed
+		},
+	}
+}
+
+// ConductorComposedSkill is the conductor with its FLEET leaf rewritten into
+// a sub-call to the per-task skill (P6): it expresses that the fleet
+// dispatches per-task sub-skills, each carrying its own contract. It is for
+// static composition analysis (Library.Closure / EffectViolations), not
+// execution — the runnable ConductorSkill binds leaf primitives.
+func ConductorComposedSkill() skills.Skill {
+	s := ConductorSkill()
+	steps := conductorSteps()
+	subcallFleet(steps, ConductorTaskSkill().Name)
+	s.Steps = steps
+	return s
+}
+
+// subcallFleet rewrites the fleet leaf (the step calling cmdFanout) into a
+// sub-call to task, recursing into branch arms.
+func subcallFleet(steps []skills.Step, task string) {
+	for i := range steps {
+		st := &steps[i]
+		if st.Branch != nil {
+			subcallFleet(st.Branch.Then, task)
+			subcallFleet(st.Branch.Else, task)
+			continue
+		}
+		if len(st.Args) == 1 && st.Args[0].Value.Kind == skills.ExprRef && st.Args[0].Value.Ref == cmdFanout {
+			st.Primitive = task
+			st.Args = nil
+		}
+	}
+}
+
+// ConductorLibrary returns a library holding the per-task skill and the
+// composed conductor that calls it, plus the composed skill, so a caller can
+// audit the composition: Closure(composed) ⊇ {task} and
+// EffectViolations(composed) is empty (the task's cap is within the
+// conductor's).
+func ConductorLibrary() (*skills.Library, skills.Skill) {
+	lib := skills.NewLibrary()
+	_ = lib.Add(ConductorTaskSkill())
+	composed := ConductorComposedSkill()
+	_ = lib.Add(composed)
+	return lib, composed
 }
