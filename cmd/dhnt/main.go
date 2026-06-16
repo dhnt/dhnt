@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -102,16 +103,20 @@ func usage() {
                 or unpushed work, else stage the pointer and commit
                 "sync: bump <submodule> pin".
 
-  dhnt conductor [dir] --goal "<text>" [--verify "<cmd>"] [--roster a,b,…]
-                [--complex-threshold N] [--judge [--judge-agent NAME]]
+  dhnt conductor [dir] --goal "<text>" [--verify "<cmd>"] [--review "<cmd>"]
+                [--roster a,b,…] [--complex-threshold N] [--max-rounds N]
+                [--budget-probe "<cmd>"] [--judge [--judge-agent NAME]]
+                [--adapt [--repair-agent NAME]]
                 goal-oriented orchestrator: decompose the goal, enlist a
                 team of agent CLIs via ycode weave, converge, and attest
-                against the goal contract (goal verifier exits 0 AND all
-                work merged). --verify sets the goal verifier (default: all
-                queued work merged); --roster picks the agent CLIs; --judge
-                replaces the exit-coded verifier with a model that reads the
-                converged work and judges goal-met (for goals with no clean
-                pass/fail check).
+                against the goal contract (goal verifier exits 0, all work
+                merged, and an independent review passes). --verify sets the
+                goal verifier (default: all queued work merged); --review is
+                the post-convergence regression gate; --roster picks the
+                agent CLIs; --max-rounds bounds the 'until done' loop;
+                --budget-probe stops once a spend ceiling is hit; --judge
+                model-judges goal-met for goals with no pass/fail check;
+                --adapt prefers/learns a host-local orchestration variant.
 `)
 }
 
@@ -441,6 +446,8 @@ func cmdConductor(args []string) error {
 	adapt := fs.Bool("adapt", false, "self-healing: prefer/learn a host-local version of the orchestration (RETRO→learn loop)")
 	repairAgent := fs.String("repair-agent", "", "agent CLI used as the repair model (with --adapt)")
 	storeDir := fs.String("store", "", "version overlay dir (default ~/.dhnt/versions)")
+	maxRounds := fs.Int("max-rounds", 1, "max orchestration rounds to run until the goal holds (the bounded 'until done' loop; ignored with --adapt)")
+	budgetProbe := fs.String("budget-probe", "", "spend ceiling: a command checked before each round; non-zero exit = over budget, stop (e.g. 'sh -c \"test $(ycode weave cost --total) -lt 500000\"')")
 	_ = fs.Parse(args)
 	if strings.TrimSpace(*goal) == "" {
 		return fmt.Errorf("conductor needs --goal \"<text>\"")
@@ -478,7 +485,6 @@ func cmdConductor(args []string) error {
 	}
 
 	var att skills.Attestation
-	var outcome skills.RunOutcome
 	if *adapt {
 		// RETRO→learn loop: prefer the host's learned orchestration, and on
 		// failure repair+fold a verified variant into the host overlay.
@@ -500,23 +506,57 @@ func cmdConductor(args []string) error {
 				rt.Repair = &skills.Repairer{Complete: c, Glossary: g, Lang: "en", MaxAttempts: 2}
 			}
 		}
+		var outcome skills.RunOutcome
 		att, outcome, err = rt.Run(skill, env)
+		fmt.Printf("adapt outcome=%s\n", outcome)
 	} else {
-		// Honour the skill's OnFail policy (conductor declares Blockers).
-		att, outcome, err = skills.RunPolicy(skill, env, "conductor", 2)
+		// Bounded "until done" loop: re-run up to --max-rounds until the
+		// contract holds, stopping early if the spend budget is exhausted.
+		res, rerr := skills.RunRounds(skill, env, "conductor", *maxRounds, budgetProbeFn(*budgetProbe, dir))
+		att, err = res.Attestation, rerr
+		fmt.Printf("rounds=%d reason=%s\n", res.Rounds, res.Reason)
 	}
 
-	// Disposition. Under PolicyBlockers an unmet goal is not a crash: surface
-	// the blockers and exit 0 — each run makes progress; re-invoke to continue.
+	return conductorFinish(skill, att, err)
+}
+
+// budgetProbeFn turns a --budget-probe command into a RunRounds budget gate:
+// it runs the command in dir before each round; exit 0 means "under budget,
+// proceed", a non-zero exit means "over budget, stop", and a failure to run
+// the probe at all is a hard error. nil when no probe is configured.
+func budgetProbeFn(probe, dir string) func() (bool, error) {
+	probe = strings.TrimSpace(probe)
+	if probe == "" {
+		return nil
+	}
+	argv := strings.Fields(probe)
+	return func() (bool, error) {
+		c := exec.Command(argv[0], argv[1:]...)
+		c.Dir = dir
+		err := c.Run()
+		if err == nil {
+			return true, nil
+		}
+		if _, ok := err.(*exec.ExitError); ok {
+			return false, nil // non-zero exit = over budget (a clean stop)
+		}
+		return false, fmt.Errorf("budget probe %q: %w", probe, err)
+	}
+}
+
+// conductorFinish reports the result honouring the skill's OnFail policy:
+// under PolicyBlockers an unmet goal is surfaced as blockers and exits 0
+// (each run makes progress; re-invoke to continue), not a crash.
+func conductorFinish(skill skills.Skill, att skills.Attestation, err error) error {
 	if err != nil {
 		if skill.OnFail == skills.PolicyBlockers {
-			fmt.Printf("conductor: goal not yet met (%s) — re-run to continue. blocker: %v\n", outcome, err)
+			fmt.Printf("conductor: goal not yet met — re-run to continue. blocker: %v\n", err)
 			return nil
 		}
 		return err
 	}
-	fmt.Printf("outcome=%s valid=%v consistent=%v passed=%v failed=%v effects=%v\n",
-		outcome, att.Valid, att.Consistent(skill), att.Passed, att.Failed, att.Effects)
+	fmt.Printf("valid=%v consistent=%v passed=%v failed=%v effects=%v\n",
+		att.Valid, att.Consistent(skill), att.Passed, att.Failed, att.Effects)
 	if !att.Valid {
 		if skill.OnFail == skills.PolicyBlockers {
 			fmt.Printf("conductor: goal not yet met — blockers: %v. re-run to continue.\n", att.Failed)

@@ -172,9 +172,15 @@ func ConductorSpec(dir, goal string, roster, verifyArgv, reviewArgv []string, co
 		Timeout: 60 * time.Minute,
 		Commands: map[string]Command{
 			cmdPlan: {
-				Argv:    []string{"sh", "-c", `ycode weave add "$GOAL" --priority p1 --body "$GOAL"`},
+				// Idempotent: file the goal only if it isn't already queued,
+				// so re-running rounds (--max-rounds) doesn't duplicate work.
+				// If the queue can't be read the guard falls through to add
+				// (worst case = the prior always-add behaviour).
+				Argv: []string{"sh", "-c",
+					`if ycode weave list --json 2>/dev/null | jq -e --arg g "$GOAL" 'any(.[]; .title == $g)' >/dev/null 2>&1; then :; ` +
+						`else ycode weave add "$GOAL" --priority p1 --body "$GOAL"; fi`},
 				Env:     []string{"GOAL=" + goal},
-				Effects: []skills.Effect{skills.EffWrite, skills.EffNet},
+				Effects: []skills.Effect{skills.EffRead, skills.EffWrite, skills.EffNet},
 			},
 			cmdComplex: {
 				Argv:    []string{"sh", "-c", fmt.Sprintf(`test "$(ycode weave list --json | jq 'length')" -gt %d`, complexThreshold)},
