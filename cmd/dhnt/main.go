@@ -49,6 +49,8 @@ func main() {
 		err = cmdCommit(os.Args[2:])
 	case "bump":
 		err = cmdBump(os.Args[2:])
+	case "conductor":
+		err = cmdConductor(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -99,6 +101,13 @@ func usage() {
                 submodule-pin-bump: abort if the submodule has uncommitted
                 or unpushed work, else stage the pointer and commit
                 "sync: bump <submodule> pin".
+
+  dhnt conductor [dir] --goal "<text>" [--verify "<cmd>"] [--roster a,b,…] [--complex-threshold N]
+                goal-oriented orchestrator: decompose the goal, enlist a
+                team of agent CLIs via ycode weave, converge, and attest
+                against the goal contract (goal verifier exits 0 AND all
+                work merged). --verify sets the goal verifier (default: all
+                queued work merged); --roster picks the agent CLIs.
 `)
 }
 
@@ -408,6 +417,50 @@ func cmdBump(args []string) error {
 		return fmt.Errorf("%w (submodule has uncommitted or unpushed work?)", runErr)
 	}
 	fmt.Printf("bumped %s: valid=%v consistent=%v\n", rest[0], att.Valid, att.Consistent(skill))
+	if !att.Valid {
+		os.Exit(1)
+	}
+	return nil
+}
+
+// --- conductor (the goal-oriented orchestrator) -----------------------
+
+func cmdConductor(args []string) error {
+	fs := flag.NewFlagSet("conductor", flag.ExitOnError)
+	goal := fs.String("goal", "", "the goal to drive to completion (required)")
+	verify := fs.String("verify", "", `goal verifier command; exit 0 ⇔ done (default: all queued work merged)`)
+	roster := fs.String("roster", "claude", "comma-separated agent CLIs to enlist (claude,codex,gemini,opencode,aider)")
+	threshold := fs.Int("complex-threshold", 3, "queued-issue count above which the research phase runs")
+	_ = fs.Parse(args)
+	if strings.TrimSpace(*goal) == "" {
+		return fmt.Errorf("conductor needs --goal \"<text>\"")
+	}
+	dir := "."
+	if rest := fs.Args(); len(rest) > 0 {
+		dir = rest[0]
+	}
+	var verifyArgv []string
+	if strings.TrimSpace(*verify) != "" {
+		verifyArgv = strings.Fields(*verify)
+	}
+	var rosterList []string
+	for _, a := range strings.Split(*roster, ",") {
+		if a = strings.TrimSpace(a); a != "" {
+			rosterList = append(rosterList, a)
+		}
+	}
+	spec := dev.ConductorSpec(dir, *goal, rosterList, verifyArgv, *threshold)
+	env, _, err := dev.NewEnv(spec)
+	if err != nil {
+		return err
+	}
+	skill := dev.ConductorSkill()
+	att, runErr := skills.Run(skill, env, "conductor")
+	if runErr != nil {
+		return runErr
+	}
+	fmt.Printf("valid=%v consistent=%v passed=%v failed=%v effects=%v\n",
+		att.Valid, att.Consistent(skill), att.Passed, att.Failed, att.Effects)
 	if !att.Valid {
 		os.Exit(1)
 	}
