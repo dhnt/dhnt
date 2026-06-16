@@ -88,6 +88,22 @@ func ConductorSkill() skills.Skill {
 	}
 }
 
+// ConductorJudgeSkill is the conductor variant whose goal-met check is a
+// model JUDGE (PredJudge) instead of a deterministic exit code: for goals
+// with no clean pass/fail verifier, an agent reads the evidence (the
+// converged work) and judges whether the goal is achieved. The convergence
+// gate stays deterministic (exit-coded), and the phases are identical. A
+// different contract means a different content address — this is a distinct
+// skill from ConductorSkill, not a reconfiguration of it.
+func ConductorJudgeSkill() skills.Skill {
+	s := ConductorSkill()
+	s.Contract = []skills.Check{
+		{Predicate: PredJudge, Args: ref(cmdGoalMet)},  // the goal is judged met (the spine)
+		{Predicate: PredExit, Args: ref(cmdConverged)}, // ∧ all dispatched work converged
+	}
+	return s
+}
+
 // agentHeadlessArgv returns the one-shot (headless) argv for a catalogued
 // agent CLI. It is intentionally a small local table rather than a
 // dependency on skills/tui (which would couple the two leaves): the
@@ -177,4 +193,24 @@ func ConductorSpec(dir, goal string, roster, verifyArgv []string, complexThresho
 			},
 		},
 	}
+}
+
+// ConductorJudgeSpec binds the judge variant: the goal-met command becomes
+// an EVIDENCE command (what the fleet produced — by default a summary of
+// merged work plus recent history) whose output is handed to the judge
+// completer, and Spec.Goal/Spec.Judge are set so the `judged` predicate is
+// bound. evidenceArgv overrides the default evidence command. Use this with
+// ConductorJudgeSkill.
+func ConductorJudgeSpec(dir, goal string, roster, evidenceArgv []string, judge skills.Completer, complexThreshold int) Spec {
+	spec := ConductorSpec(dir, goal, roster, nil, complexThreshold)
+	if len(evidenceArgv) == 0 {
+		evidenceArgv = []string{"sh", "-c", `ycode weave list --summary 2>/dev/null; echo '--- recent commits ---'; git log --oneline -10 2>/dev/null`}
+	}
+	gm := spec.Commands[cmdGoalMet]
+	gm.Argv = evidenceArgv
+	gm.Effects = []skills.Effect{skills.EffRead, skills.EffNet}
+	spec.Commands[cmdGoalMet] = gm
+	spec.Goal = goal
+	spec.Judge = judge
+	return spec
 }

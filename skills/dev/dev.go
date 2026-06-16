@@ -79,6 +79,15 @@ type Spec struct {
 	Dir      string
 	Commands map[string]Command
 	Timeout  time.Duration
+
+	// Goal and Judge enable the optional `judged` predicate (PredJudge):
+	// when Judge is non-nil, a `judged` check runs its evidence command and
+	// asks the model whether Goal has been achieved. This is for outcomes
+	// with no clean exit-coded verifier. Leaving Judge nil keeps the leaf
+	// purely deterministic (exit/empty-output); skills that never reference
+	// `judged` are unaffected either way.
+	Goal  string
+	Judge skills.Completer
 }
 
 // Session runs a Spec and memoizes each command's result within a run so
@@ -104,12 +113,16 @@ func NewEnv(spec Spec) (skills.Env, *Session, error) {
 		spec.Timeout = 10 * time.Minute
 	}
 	s := &Session{spec: spec, ran: map[string]result{}}
+	preds := map[string]skills.PredicateFn{
+		PredExit:     s.exitZero,
+		PredEmptyOut: s.emptyOutput,
+	}
+	if spec.Judge != nil {
+		preds[PredJudge] = s.judged
+	}
 	env := skills.Env{
 		Primitives: map[string]skills.PrimitiveFn{PrimRun: s.run},
-		Predicates: map[string]skills.PredicateFn{
-			PredExit:     s.exitZero,
-			PredEmptyOut: s.emptyOutput,
-		},
+		Predicates: preds,
 	}
 	return env, s, nil
 }

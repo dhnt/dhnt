@@ -102,12 +102,16 @@ func usage() {
                 or unpushed work, else stage the pointer and commit
                 "sync: bump <submodule> pin".
 
-  dhnt conductor [dir] --goal "<text>" [--verify "<cmd>"] [--roster a,b,…] [--complex-threshold N]
+  dhnt conductor [dir] --goal "<text>" [--verify "<cmd>"] [--roster a,b,…]
+                [--complex-threshold N] [--judge [--judge-agent NAME]]
                 goal-oriented orchestrator: decompose the goal, enlist a
                 team of agent CLIs via ycode weave, converge, and attest
                 against the goal contract (goal verifier exits 0 AND all
                 work merged). --verify sets the goal verifier (default: all
-                queued work merged); --roster picks the agent CLIs.
+                queued work merged); --roster picks the agent CLIs; --judge
+                replaces the exit-coded verifier with a model that reads the
+                converged work and judges goal-met (for goals with no clean
+                pass/fail check).
 `)
 }
 
@@ -431,6 +435,8 @@ func cmdConductor(args []string) error {
 	verify := fs.String("verify", "", `goal verifier command; exit 0 ⇔ done (default: all queued work merged)`)
 	roster := fs.String("roster", "claude", "comma-separated agent CLIs to enlist (claude,codex,gemini,opencode,aider)")
 	threshold := fs.Int("complex-threshold", 3, "queued-issue count above which the research phase runs")
+	judge := fs.Bool("judge", false, "judge goal-met with a model (for goals with no exit-coded verifier) instead of --verify")
+	judgeAgent := fs.String("judge-agent", "gemini", "agent CLI used as the goal-met judge (with --judge)")
 	_ = fs.Parse(args)
 	if strings.TrimSpace(*goal) == "" {
 		return fmt.Errorf("conductor needs --goal \"<text>\"")
@@ -450,11 +456,19 @@ func cmdConductor(args []string) error {
 		}
 	}
 	spec := dev.ConductorSpec(dir, *goal, rosterList, verifyArgv, *threshold)
+	skill := dev.ConductorSkill()
+	if *judge {
+		complete, ok := tui.Completer(*judgeAgent, dir, 120*time.Second)
+		if !ok {
+			return fmt.Errorf("unknown judge agent %q", *judgeAgent)
+		}
+		spec = dev.ConductorJudgeSpec(dir, *goal, rosterList, nil, complete, *threshold)
+		skill = dev.ConductorJudgeSkill()
+	}
 	env, _, err := dev.NewEnv(spec)
 	if err != nil {
 		return err
 	}
-	skill := dev.ConductorSkill()
 	att, runErr := skills.Run(skill, env, "conductor")
 	if runErr != nil {
 		return runErr

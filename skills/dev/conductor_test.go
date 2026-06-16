@@ -139,6 +139,71 @@ func TestConductor_ResearchBranch(t *testing.T) {
 	}
 }
 
+// fakeJudge returns a Completer that always replies with reply, so the
+// judge path is exercised hermetically (no agent CLI, no tokens).
+func fakeJudge(reply string) skills.Completer {
+	return func(string) (string, error) { return reply, nil }
+}
+
+func runJudge(t *testing.T, spec dev.Spec) (skills.Attestation, error) {
+	t.Helper()
+	env, _, err := dev.NewEnv(spec)
+	if err != nil {
+		t.Fatalf("NewEnv: %v", err)
+	}
+	return skills.Run(dev.ConductorJudgeSkill(), env, "test")
+}
+
+func TestConductor_JudgeMet(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX true/false")
+	}
+	spec := conductorSpec(map[string]dev.Command{"go": cmd("echo", "feature shipped, tests green")})
+	spec.Goal = "ship the feature"
+	spec.Judge = fakeJudge("<verdict>YES</verdict>")
+	att, err := runJudge(t, spec)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if !att.Valid {
+		t.Fatalf("judge said YES but skill reported invalid; att=%+v", att)
+	}
+	if !att.Consistent(dev.ConductorJudgeSkill()) {
+		t.Errorf("attestation not consistent with the judge skill: %+v", att)
+	}
+}
+
+func TestConductor_JudgeUnmet(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX true/false")
+	}
+	spec := conductorSpec(map[string]dev.Command{"go": cmd("echo", "nothing done yet")})
+	spec.Goal = "ship the feature"
+	spec.Judge = fakeJudge("Reasoning: incomplete.\n<verdict>NO</verdict>")
+	att, err := runJudge(t, spec)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if att.Valid {
+		t.Errorf("judge said NO but skill reported valid")
+	}
+	if !slices.Contains(att.Failed, "meto(value=go)") {
+		t.Errorf("expected judged goal-met check in Failed; got %v", att.Failed)
+	}
+}
+
+// TestConductor_JudgeUnboundWithoutCompleter proves the judge skill needs a
+// Spec.Judge: running it against a non-judge env is a hard error, not a
+// silent pass (an executor cannot skip the goal-met check).
+func TestConductor_JudgeUnboundWithoutCompleter(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX true/false")
+	}
+	if _, err := runJudge(t, conductorSpec(nil)); err == nil {
+		t.Errorf("expected error running judge skill without a Spec.Judge completer")
+	}
+}
+
 func TestConductor_PhaseCommandMissing(t *testing.T) {
 	att, err := runConductor(t, conductorSpec(map[string]dev.Command{
 		"fa": cmd("definitely-not-a-real-binary-xyz"),
