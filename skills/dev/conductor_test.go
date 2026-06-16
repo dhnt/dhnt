@@ -37,8 +37,8 @@ func conductorSpec(over map[string]dev.Command) dev.Spec {
 		"go": cmd("true"),  // goal-met
 		"cu": cmd("true"),  // converged
 		"vi": cmd("true"),  // reviewed
-		"ni": cmd("false"), // not a single issue → route to FLEET (the common case)
-		"lo": cmd("true"),  // SOLO arm
+		"ni": cmd("false"), // not parallel-safe → route to SEQUENTIAL (the safe default)
+		"lo": cmd("true"),  // SEQUENTIAL arm
 		"tu": cmd("false"), // not stuck → ESCALATE skipped
 		"ke": cmd("true"),  // ESCALATE arm
 	}
@@ -234,19 +234,22 @@ func TestConductor_FanoutRouting(t *testing.T) {
 	}
 	for _, tc := range []struct {
 		name      string
-		single    string // ni command
+		parallel  string // ni command (parallel-safe?)
 		wantSolo  bool
 		wantFleet bool
 	}{
-		{"single-issue-routes-solo", "true", true, false},
-		{"many-issues-route-fleet", "false", false, true},
+		// parallel-safe (many disjoint) → FLEET; else (single or shared
+		// implementation) → SEQUENTIAL. Encodes the dogfood lesson that
+		// parallel agents on shared source collide at merge.
+		{"parallel-safe-routes-fleet", "true", false, true},
+		{"shared-impl-routes-sequential", "false", true, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
 			soloMark := filepath.Join(dir, "solo.marker")
 			fleetMark := filepath.Join(dir, "fleet.marker")
 			spec := conductorSpec(map[string]dev.Command{
-				"ni": cmd(tc.single),
+				"ni": cmd(tc.parallel),
 				"lo": cmd("sh", "-c", "touch "+soloMark),
 				"fa": cmd("sh", "-c", "touch "+fleetMark),
 			})
@@ -323,7 +326,7 @@ func TestConductor_DeclaresBlockersPolicy(t *testing.T) {
 
 func TestConductor_PhaseCommandMissing(t *testing.T) {
 	att, err := runConductor(t, conductorSpec(map[string]dev.Command{
-		"fa": cmd("definitely-not-a-real-binary-xyz"),
+		"pa": cmd("definitely-not-a-real-binary-xyz"), // PLAN always runs (unlike routed arms)
 	}))
 	if err == nil {
 		t.Errorf("expected error when a phase command is missing; att=%+v", att)

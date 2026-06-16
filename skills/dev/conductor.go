@@ -54,8 +54,8 @@ const (
 	cmdGoalMet   = "go" // the user goal verifier — exit 0 ⇔ goal achieved (the spine)
 	cmdConverged = "cu" // exit 0 ⇔ no open/unmerged work remains
 	cmdReview    = "vi" // independent post-convergence review — exit 0 ⇔ merged result is clean
-	cmdSingle    = "ni" // exactly one open issue? (exit 0 ⇒ route to SOLO, else FLEET)
-	cmdSolo      = "lo" // ycode weave start — drive a single agent (no fan-out overhead)
+	cmdParallel  = "ni" // safe to fan out? exit 0 ⇔ >1 issue AND scopes DISJOINT ⇒ FLEET, else SEQUENTIAL
+	cmdSolo      = "lo" // ycode weave start — ONE worker, grind+resume (single issue or shared implementation)
 	cmdStuck     = "tu" // any worker stuck/blocked? (exit 0 ⇒ ESCALATE)
 	cmdEscalate  = "ke" // nudge stuck workers (weave say) — the routed escalation arm
 )
@@ -74,13 +74,20 @@ func conductorSteps() []skills.Step {
 				{Name: "si", Primitive: PrimRun, Latitude: skills.LatJudge, Args: ref(cmdResearch)},
 			},
 		}},
-		{Branch: &skills.Branch{ // ROUTE fan-out by scale: one issue → solo, many → fleet
-			Cond: skills.Check{Predicate: PredExit, Args: ref(cmdSingle)},
+		// ROUTE by PARALLEL-SAFETY, not scale (RETRO lesson, dogfood 2026-06-16):
+		// fan out ONLY when work is many AND DISJOINT. Tasks that share an
+		// implementation (one feature, overlapping source) must run
+		// SEQUENTIALLY — one worker grinding + resuming — because parallel
+		// agents on shared code produce competing rewrites that COLLIDE
+		// irreconcilably at merge, so the parallel attempt + conflict-
+		// resolution costs more time and tokens than doing it sequentially.
+		{Branch: &skills.Branch{
+			Cond: skills.Check{Predicate: PredExit, Args: ref(cmdParallel)},
 			Then: []skills.Step{
-				{Name: "so", Primitive: PrimRun, Args: ref(cmdSolo)}, // SOLO: one agent, no fan-out overhead
+				{Name: "fo", Primitive: PrimRun, Args: ref(cmdFanout)}, // FLEET: many DISJOINT issues, in parallel
 			},
 			Else: []skills.Step{
-				{Name: "fo", Primitive: PrimRun, Args: ref(cmdFanout)}, // FLEET: fan out one agent per issue
+				{Name: "so", Primitive: PrimRun, Args: ref(cmdSolo)}, // SEQUENTIAL: one worker (single issue OR shared implementation)
 			},
 		}},
 		{Name: "su", Primitive: PrimRun, Latitude: skills.LatJudge, Args: ref(cmdSteer)}, // STEER (judgement)
@@ -216,8 +223,17 @@ func ConductorSpec(dir, goal string, roster, verifyArgv, reviewArgv []string, co
 				Argv:    fanout,
 				Effects: []skills.Effect{skills.EffWrite, skills.EffNet, skills.EffSpend, skills.EffTime},
 			},
-			cmdSingle: {
-				Argv:    []string{"sh", "-c", `test "$(ycode weave list --json | jq '[.[] | select(.state == "todo")] | length')" -eq 1`},
+			cmdParallel: {
+				// Parallel-safe iff >1 open issue AND their scopes are pairwise
+				// disjoint (no two share a top-level scope dir). Unknown or
+				// overlapping scopes ⇒ non-zero ⇒ SEQUENTIAL — the safe default
+				// that encodes "shared implementations collide in parallel".
+				Argv: []string{"sh", "-c",
+					`j=$(ycode weave list --json); ` +
+						`n=$(printf '%s' "$j" | jq '[.[]|select(.state=="todo")]|length'); ` +
+						`[ "${n:-0}" -gt 1 ] || exit 1; ` +
+						`dups=$(printf '%s' "$j" | jq '[.[]|select(.state=="todo")|(.scope // "")|split("/")[0]]|group_by(.)|map(select(length>1))|length'); ` +
+						`[ "${dups:-1}" -eq 0 ]`},
 				Effects: []skills.Effect{skills.EffRead, skills.EffNet},
 			},
 			cmdSolo: {
