@@ -56,8 +56,8 @@ const (
 	cmdReview    = "vi" // independent post-convergence review — exit 0 ⇔ merged result is clean
 	cmdParallel  = "ni" // safe to fan out? exit 0 ⇔ >1 issue AND scopes DISJOINT ⇒ FLEET, else SEQUENTIAL
 	cmdSolo      = "lo" // ycode weave start — ONE worker, grind+resume (single issue or shared implementation)
-	cmdStuck     = "tu" // any worker stuck/blocked? (exit 0 ⇒ ESCALATE)
-	cmdEscalate  = "ke" // nudge stuck workers (weave say) — the routed escalation arm
+	cmdStuck     = "tu" // worker stuck/blocked OR stopped early w/ goal unmet (judge vs goal, not state)? (exit 0 ⇒ ESCALATE)
+	cmdEscalate  = "ke" // nudge / RE-DRIVE: weave say + resume w/ a harder iterative prompt until the goal is met (partial submit ≠ done)
 )
 
 // conductorSteps is the shared phase body of every conductor variant:
@@ -91,10 +91,10 @@ func conductorSteps() []skills.Step {
 			},
 		}},
 		{Name: "su", Primitive: PrimRun, Latitude: skills.LatJudge, Args: ref(cmdSteer)}, // STEER (judgement)
-		{Branch: &skills.Branch{ // ESCALATE only when workers are stuck/blocked
+		{Branch: &skills.Branch{ // ESCALATE when a worker is stuck/blocked OR stopped early with the goal unmet
 			Cond: skills.Check{Predicate: PredExit, Args: ref(cmdStuck)},
 			Then: []skills.Step{
-				{Name: "ne", Primitive: PrimRun, Latitude: skills.LatJudge, Args: ref(cmdEscalate)}, // nudge stuck
+				{Name: "ne", Primitive: PrimRun, Latitude: skills.LatJudge, Args: ref(cmdEscalate)}, // nudge / re-drive partial
 			},
 		}},
 		{Name: "ta", Primitive: PrimRun, Args: ref(cmdConverge)}, // CONVERGE: wait + pull verified
