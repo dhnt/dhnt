@@ -173,6 +173,39 @@ cd dhnt
 go test -race ./...
 ```
 
+## Installing the `dhnt` CLI
+
+The `dhnt` command is the runtime for dhnt-lang skills — most notably
+`dhnt conductor`, the goal-oriented orchestrator. The CLI lives in
+[`cmd/dhnt`](./cmd/dhnt) (module path `github.com/dhnt/dhnt`).
+
+There are no prebuilt binaries yet (CI builds and tests only — see
+[`.github/workflows/ci.yml`](./.github/workflows/ci.yml)), so install
+from source with the Go toolchain (Go 1.x):
+
+```sh
+# 1. Install directly with the Go toolchain (puts `dhnt` in $(go env GOBIN),
+#    which defaults to $(go env GOPATH)/bin — make sure it is on your PATH):
+go install github.com/dhnt/dhnt/cmd/dhnt@latest
+
+# 2. …or build from a clone:
+git clone https://github.com/dhnt/dhnt
+cd dhnt
+go build -o dhnt ./cmd/dhnt
+#    then move it onto your PATH, e.g.:
+mv dhnt "$(go env GOPATH)/bin/"   # or: sudo mv dhnt /usr/local/bin/
+```
+
+Verify the install:
+
+```sh
+dhnt --help
+```
+
+Once `dhnt` is on your PATH, skills such as `dhnt conductor . --goal
+"…" --verify "…"` are runnable; without it, the conductor skill can
+only be followed by hand (e.g. via `ycode weave`).
+
 ## Status
 
 **Alpha (`v0.1.x`).** The API may change at minor versions. `v1.0`
