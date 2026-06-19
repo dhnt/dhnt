@@ -204,7 +204,7 @@ dhnt --help
 
 Once `dhnt` is on your PATH, skills such as `dhnt conductor . --goal
 "…" --verify "…"` are runnable; without it, the conductor skill can
-only be followed by hand (e.g. via `ycode weave`).
+only be followed by hand (e.g. via `bashy weave`).
 
 ## Status
 

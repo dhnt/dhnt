@@ -108,7 +108,7 @@ func usage() {
                 [--budget-probe "<cmd>"] [--judge [--judge-agent NAME]]
                 [--adapt [--repair-agent NAME]]
                 goal-oriented orchestrator: decompose the goal, enlist a
-                team of agent CLIs via ycode weave, converge, and attest
+                team of agent CLIs via bashy weave, converge, and attest
                 against the goal contract (goal verifier exits 0, all work
                 merged, and an independent review passes). --verify sets the
                 goal verifier (default: all queued work merged); --review is
@@ -447,7 +447,7 @@ func cmdConductor(args []string) error {
 	repairAgent := fs.String("repair-agent", "", "agent CLI used as the repair model (with --adapt)")
 	storeDir := fs.String("store", "", "version overlay dir (default ~/.dhnt/versions)")
 	maxRounds := fs.Int("max-rounds", 1, "max orchestration rounds to run until the goal holds (the bounded 'until done' loop; ignored with --adapt)")
-	budgetProbe := fs.String("budget-probe", "", "spend ceiling: a command checked before each round; non-zero exit = over budget, stop (e.g. 'sh -c \"test $(ycode weave cost --total) -lt 500000\"')")
+	budgetProbe := fs.String("budget-probe", "", "spend ceiling: a command checked before each round; non-zero exit = over budget, stop (e.g. 'sh -c \"test $(bashy weave cost --total) -lt 500000\"')")
 	_ = fs.Parse(args)
 	if strings.TrimSpace(*goal) == "" {
 		return fmt.Errorf("conductor needs --goal \"<text>\"")

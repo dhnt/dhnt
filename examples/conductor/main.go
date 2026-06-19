@@ -9,11 +9,11 @@
 // Command conductor demonstrates the goal-oriented orchestrator dhnt
 // skill. By default it runs hermetically against stubbed phases (POSIX
 // true) so you can see a valid+consistent attestation without a real
-// fleet; it also prints the canonical form and the real `ycode weave`
+// fleet; it also prints the canonical form and the real `bashy weave`
 // orchestration surface the Spec binds to.
 //
 //	go run .                       # hermetic stub run (valid=true)
-//	go run . --real "ship X"       # real run: drive `ycode weave` for the goal
+//	go run . --real "ship X"       # real run: drive `bashy weave` for the goal
 package main
 
 import (

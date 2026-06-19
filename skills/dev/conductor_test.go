@@ -19,7 +19,7 @@ import (
 	"github.com/dhnt/dhnt/skills/dev"
 )
 
-// These tests stub the `ycode weave` orchestration surface with POSIX
+// These tests stub the `bashy weave` orchestration surface with POSIX
 // true/false/echo so they are hermetic (no fleet, no agent CLIs, no
 // tokens) yet exercise the real executor: the goal-met ∧ converged
 // contract, the complexity-gated RESEARCH branch, and the effect cap.

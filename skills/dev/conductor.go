@@ -37,7 +37,7 @@ import (
 // Run executes the phases once and attests against the goal; the caller
 // (or the self-healing Runtime, bounded by Repair.MaxAttempts) re-invokes
 // until the contract holds. The convergence/orchestration surface — the
-// concrete `ycode weave …` argv, the verifier, the roster — lives in the
+// concrete `bashy weave …` argv, the verifier, the roster — lives in the
 // Spec, so the canonical skill stays portable and free of free text.
 
 // --- execution lessons (weave dogfood retros, 2026-06) ----------------
@@ -87,18 +87,18 @@ import (
 // concrete argv lives in ConductorSpec so the orchestration surface is
 // runtime config, not part of the content-addressed skill).
 const (
-	cmdPlan      = "pa" // ycode weave add — decompose the goal into queued issues
+	cmdPlan      = "pa" // bashy weave add — decompose the goal into queued issues
 	cmdComplex   = "bo" // is the goal complex? (exit 0 ⇒ yes ⇒ research first)
 	cmdResearch  = "re" // research the goal (only when complex) — incl. INSPECT THE REFERENCE impl/spec before calling a goal impossible (L7)
-	cmdFanout    = "fa" // ycode weave start — enlist one agent per open issue (VERIFY each clone is provisioned first, L1)
-	cmdSteer     = "wo" // ycode weave list — steering pass (say-on-demand is judgement)
-	cmdConverge  = "vo" // ycode weave wait + pull verified work (SALVAGE submitted-dirty trees, L5; re-run flaky gates, L6)
-	cmdRetro     = "ru" // ycode weave list --summary — tool report card / learn
+	cmdFanout    = "fa" // bashy weave start — enlist one agent per open issue (VERIFY each clone is provisioned first, L1)
+	cmdSteer     = "wo" // bashy weave list — steering pass (say-on-demand is judgement)
+	cmdConverge  = "vo" // bashy weave wait + pull verified work (SALVAGE submitted-dirty trees, L5; re-run flaky gates, L6)
+	cmdRetro     = "ru" // bashy weave list --summary — tool report card / learn
 	cmdGoalMet   = "go" // the user goal verifier — exit 0 ⇔ goal achieved (the spine; RE-MEASURE, never trust "submitted", L2)
 	cmdConverged = "cu" // exit 0 ⇔ no open/unmerged work remains
 	cmdReview    = "vi" // independent WHOLE-TREE post-convergence review — exit 0 ⇔ no sibling regressed (L4), not just the target's own test
 	cmdParallel  = "ni" // safe to fan out? exit 0 ⇔ >1 issue AND scopes DISJOINT ⇒ FLEET, else SEQUENTIAL
-	cmdSolo      = "lo" // ycode weave start — ONE worker, grind+resume (single issue or shared implementation)
+	cmdSolo      = "lo" // bashy weave start — ONE worker, grind+resume (single issue or shared implementation)
 	cmdStuck     = "tu" // worker stuck/blocked OR stopped early w/ goal unmet (judge vs goal, not state)? (exit 0 ⇒ ESCALATE)
 	cmdEscalate  = "ke" // nudge / RE-DRIVE: weave say + resume w/ a harder iterative prompt until the goal is met (partial submit ≠ done)
 )
@@ -203,7 +203,7 @@ func agentHeadlessArgv(agent, prompt string) []string {
 	}
 }
 
-// ConductorSpec binds the conductor's phases to a concrete `ycode weave`
+// ConductorSpec binds the conductor's phases to a concrete `bashy weave`
 // orchestration surface for a project at dir, driving the goal to
 // completion with the given agent roster. verifyArgv is the goal verifier
 // (e.g. ["go","test","./..."]); when empty it defaults to the convergence
@@ -221,7 +221,7 @@ func ConductorSpec(dir, goal string, roster, verifyArgv, reviewArgv []string, co
 		tool = roster[0]
 	}
 	convergedArgv := []string{"sh", "-c",
-		`test "$(ycode weave list --json | jq '[.[] | select(.state != "merged")] | length')" -eq 0`}
+		`test "$(bashy weave list --json | jq '[.[] | select(.state != "merged")] | length')" -eq 0`}
 	if len(verifyArgv) == 0 {
 		verifyArgv = convergedArgv
 	}
@@ -233,12 +233,12 @@ func ConductorSpec(dir, goal string, roster, verifyArgv, reviewArgv []string, co
 	}
 	research := agentHeadlessArgv(tool, "Research approaches, prior art, and risks for: "+goal)
 	fanout := []string{"sh", "-c",
-		`ycode weave list --json | jq -r '.[] | select(.state == "todo") | .number' | ` +
-			`while read n; do ycode weave start --issue "$n" -- ` + tool + ` & done; wait`}
-	solo := []string{"sh", "-c", `ycode weave start -- ` + tool}
+		`bashy weave list --json | jq -r '.[] | select(.state == "todo") | .number' | ` +
+			`while read n; do bashy weave start --issue "$n" -- ` + tool + ` & done; wait`}
+	solo := []string{"sh", "-c", `bashy weave start -- ` + tool}
 	escalate := []string{"sh", "-c",
-		`for n in $(ycode weave list --json | jq -r '.[] | select(.state == "blocked") | .number'); do ` +
-			`ycode weave say "$n" "you appear blocked — continue, or write a BLOCKERS note and exit"; done`}
+		`for n in $(bashy weave list --json | jq -r '.[] | select(.state == "blocked") | .number'); do ` +
+			`bashy weave say "$n" "you appear blocked — continue, or write a BLOCKERS note and exit"; done`}
 	return Spec{
 		Dir:     dir,
 		Timeout: 60 * time.Minute,
@@ -249,13 +249,13 @@ func ConductorSpec(dir, goal string, roster, verifyArgv, reviewArgv []string, co
 				// If the queue can't be read the guard falls through to add
 				// (worst case = the prior always-add behaviour).
 				Argv: []string{"sh", "-c",
-					`if ycode weave list --json 2>/dev/null | jq -e --arg g "$GOAL" 'any(.[]; .title == $g)' >/dev/null 2>&1; then :; ` +
-						`else ycode weave add "$GOAL" --priority p1 --body "$GOAL"; fi`},
+					`if bashy weave list --json 2>/dev/null | jq -e --arg g "$GOAL" 'any(.[]; .title == $g)' >/dev/null 2>&1; then :; ` +
+						`else bashy weave add "$GOAL" --priority p1 --body "$GOAL"; fi`},
 				Env:     []string{"GOAL=" + goal},
 				Effects: []skills.Effect{skills.EffRead, skills.EffWrite, skills.EffNet},
 			},
 			cmdComplex: {
-				Argv:    []string{"sh", "-c", fmt.Sprintf(`test "$(ycode weave list --json | jq 'length')" -gt %d`, complexThreshold)},
+				Argv:    []string{"sh", "-c", fmt.Sprintf(`test "$(bashy weave list --json | jq 'length')" -gt %d`, complexThreshold)},
 				Effects: []skills.Effect{skills.EffRead, skills.EffNet},
 			},
 			cmdResearch: {
@@ -272,7 +272,7 @@ func ConductorSpec(dir, goal string, roster, verifyArgv, reviewArgv []string, co
 				// overlapping scopes ⇒ non-zero ⇒ SEQUENTIAL — the safe default
 				// that encodes "shared implementations collide in parallel".
 				Argv: []string{"sh", "-c",
-					`j=$(ycode weave list --json); ` +
+					`j=$(bashy weave list --json); ` +
 						`n=$(printf '%s' "$j" | jq '[.[]|select(.state=="todo")]|length'); ` +
 						`[ "${n:-0}" -gt 1 ] || exit 1; ` +
 						`dups=$(printf '%s' "$j" | jq '[.[]|select(.state=="todo")|(.scope // "")|split("/")[0]]|group_by(.)|map(select(length>1))|length'); ` +
@@ -284,7 +284,7 @@ func ConductorSpec(dir, goal string, roster, verifyArgv, reviewArgv []string, co
 				Effects: []skills.Effect{skills.EffWrite, skills.EffNet, skills.EffSpend, skills.EffTime},
 			},
 			cmdStuck: {
-				Argv:    []string{"sh", "-c", `test "$(ycode weave list --json | jq '[.[] | select(.state == "blocked")] | length')" -gt 0`},
+				Argv:    []string{"sh", "-c", `test "$(bashy weave list --json | jq '[.[] | select(.state == "blocked")] | length')" -gt 0`},
 				Effects: []skills.Effect{skills.EffRead, skills.EffNet},
 			},
 			cmdEscalate: {
@@ -296,7 +296,7 @@ func ConductorSpec(dir, goal string, roster, verifyArgv, reviewArgv []string, co
 				Effects: []skills.Effect{skills.EffRead, skills.EffNet},
 			},
 			cmdConverge: {
-				Argv:    []string{"sh", "-c", `ycode weave wait || true; ycode weave pull`},
+				Argv:    []string{"sh", "-c", `bashy weave wait || true; bashy weave pull`},
 				Effects: []skills.Effect{skills.EffWrite, skills.EffRead, skills.EffNet, skills.EffTime},
 			},
 			cmdRetro: {
@@ -328,7 +328,7 @@ func ConductorSpec(dir, goal string, roster, verifyArgv, reviewArgv []string, co
 func ConductorJudgeSpec(dir, goal string, roster, evidenceArgv, reviewArgv []string, judge skills.Completer, complexThreshold int) Spec {
 	spec := ConductorSpec(dir, goal, roster, nil, reviewArgv, complexThreshold)
 	if len(evidenceArgv) == 0 {
-		evidenceArgv = []string{"sh", "-c", `ycode weave list --summary 2>/dev/null; echo '--- recent commits ---'; git log --oneline -10 2>/dev/null`}
+		evidenceArgv = []string{"sh", "-c", `bashy weave list --summary 2>/dev/null; echo '--- recent commits ---'; git log --oneline -10 2>/dev/null`}
 	}
 	gm := spec.Commands[cmdGoalMet]
 	gm.Argv = evidenceArgv
