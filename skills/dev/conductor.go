@@ -40,20 +40,63 @@ import (
 // concrete `ycode weave …` argv, the verifier, the roster — lives in the
 // Spec, so the canonical skill stays portable and free of free text.
 
+// --- execution lessons (weave dogfood retros, 2026-06) ----------------
+//
+// Hard-won rules for driving a real fleet to a measured goal. They are
+// guidance, not new phases — the spine (decompose, isolate, gate,
+// converge) is unchanged; these are HOW to run it without burning runs.
+//
+// ORCHESTRATOR:
+//   L1 VERIFY THE CLONE BEFORE LAUNCH. A fan-out that races issue
+//      creation can hand a worker an un-provisioned sandbox (no repo /
+//      deps) — it then no-ops or measures nothing and the gate
+//      false-passes. Confirm the worktree + build deps are present
+//      before enlisting.
+//   L2 RE-MEASURE AGAINST THE GOAL; never trust a worker's "submitted"
+//      or "done". submitted ≠ committed ≠ goal-met. The conductor
+//      re-runs the verifier itself (cmdGoalMet) and re-drives the gap.
+//   L3 HAND THE WORKER THE EXACT RESIDUAL. For a reach-zero goal,
+//      capture the precise failing diff / line set and put it in the
+//      issue so the worker root-causes specific cases instead of
+//      "making progress". This is what turns a ratchet into a flip.
+//   L4 A FLIP IN ISOLATION CAN REGRESS A SIBLING. Fixing one target can
+//      break a neighbour that shares the changed code. This is exactly
+//      why the Contract carries cmdReview — an independent
+//      post-convergence gate over the WHOLE tree, not just the touched
+//      target. Never accept on the target's own test alone.
+//   L5 SALVAGE, DON'T DISCARD. Some tools reliably leave the tree
+//      uncommitted (incl. new untracked files). If the gate passes,
+//      commit their work yourself rather than throwing the run away.
+//   L6 DON'T TRUST A SINGLE POST-MERGE TEST RUN UNDER LOAD. Concurrent
+//      builds flake timing-sensitive tests; re-run before believing a
+//      regression (or a pass).
+//   L7 INSPECT THE REFERENCE BEFORE DECLARING A GOAL IMPOSSIBLE. A
+//      "ceiling" is usually "not yet implemented". Read the spec / the
+//      reference implementation's source first — most "can't" turns
+//      into a bounded change once the exact required behaviour is known.
+//      (This is the RESEARCH phase's real job, cmdResearch.)
+//   L8 SCOPE CROSS-REPO RESIDUE BEFORE PROMISING A FLIP. A goal may need
+//      changes in more than one repo/module; provision the worker for
+//      all of them or split the issue — don't discover the second repo
+//      mid-run.
+//
+// WORKER discipline is encoded on the per-task contract — see
+// ConductorTaskSkill below.
+
 // Command ids for the conductor skill (canonical dhnt CV atoms; the
 // concrete argv lives in ConductorSpec so the orchestration surface is
 // runtime config, not part of the content-addressed skill).
 const (
 	cmdPlan      = "pa" // ycode weave add — decompose the goal into queued issues
 	cmdComplex   = "bo" // is the goal complex? (exit 0 ⇒ yes ⇒ research first)
-	cmdResearch  = "re" // research the goal via an agent CLI (only when complex)
-	cmdFanout    = "fa" // ycode weave start — enlist one agent per open issue
+	cmdResearch  = "re" // research the goal (only when complex) — incl. INSPECT THE REFERENCE impl/spec before calling a goal impossible (L7)
+	cmdFanout    = "fa" // ycode weave start — enlist one agent per open issue (VERIFY each clone is provisioned first, L1)
 	cmdSteer     = "wo" // ycode weave list — steering pass (say-on-demand is judgement)
-	cmdConverge  = "vo" // ycode weave wait + pull verified work
+	cmdConverge  = "vo" // ycode weave wait + pull verified work (SALVAGE submitted-dirty trees, L5; re-run flaky gates, L6)
 	cmdRetro     = "ru" // ycode weave list --summary — tool report card / learn
-	cmdGoalMet   = "go" // the user goal verifier — exit 0 ⇔ goal achieved (the spine)
+	cmdGoalMet   = "go" // the user goal verifier — exit 0 ⇔ goal achieved (the spine; RE-MEASURE, never trust "submitted", L2)
 	cmdConverged = "cu" // exit 0 ⇔ no open/unmerged work remains
-	cmdReview    = "vi" // independent post-convergence review — exit 0 ⇔ merged result is clean
+	cmdReview    = "vi" // independent WHOLE-TREE post-convergence review — exit 0 ⇔ no sibling regressed (L4), not just the target's own test
 	cmdParallel  = "ni" // safe to fan out? exit 0 ⇔ >1 issue AND scopes DISJOINT ⇒ FLEET, else SEQUENTIAL
 	cmdSolo      = "lo" // ycode weave start — ONE worker, grind+resume (single issue or shared implementation)
 	cmdStuck     = "tu" // worker stuck/blocked OR stopped early w/ goal unmet (judge vs goal, not state)? (exit 0 ⇒ ESCALATE)
@@ -300,8 +343,8 @@ func ConductorJudgeSpec(dir, goal string, roster, evidenceArgv, reviewArgv []str
 
 // Command ids for the per-task contract skill.
 const (
-	cmdTaskGreen = "va" // the task's own tests pass (its expected output)
-	cmdCommitted = "mi" // the task's work is committed
+	cmdTaskGreen = "va" // expected output: FULL suite green, no sibling regressed (W2) — not just the task's own scoped test
+	cmdCommitted = "mi" // the task's work is committed — ALL of it, incl. new untracked files (W5); never push/switch branches
 )
 
 // ConductorTaskSkill is the per-task contract template — the dhnt analogue
@@ -312,6 +355,29 @@ const (
 // a task's cap is a subset of the conductor's, Library.EffectViolations can
 // prove statically that composing tasks never widens the orchestrator's
 // blast radius.
+//
+// WORKER discipline (the agentic-tool side; the dual of the orchestrator's
+// L1–L8 above — what the enlisted CLI must actually do for the contract to
+// mean anything):
+//   W1 ITERATE TO THE GOAL, not to "progress": measure → fix → gate →
+//      commit, and repeat until the target is fully met (e.g. failing
+//      count = 0 / suite green), not until you've improved it. A partial
+//      submit does not satisfy the contract.
+//   W2 GATE AFTER EVERY CHANGE, and cmdTaskGreen means the FULL suite is
+//      green with NO SIBLING REGRESSED — not merely your scoped target.
+//      A change that flips your target but breaks a neighbour FAILS the
+//      contract (the conductor's cmdReview will catch it; catch it first).
+//   W3 STAY IN SCOPE. The cheapest way to break a sibling (W2) is an
+//      over-broad change. Make the narrowest edit that achieves the goal.
+//   W4 MATCH THE REFERENCE EXACTLY. Read the spec / reference source
+//      (the orchestrator hands it to you) and reproduce its behaviour;
+//      do not guess, hardcode, or assume a default.
+//   W5 COMMIT ALL WORK, including new untracked files; never push or
+//      switch branches (cmdCommitted; the orchestrator converges/merges).
+//   W6 BE HONEST WHEN BLOCKED. If a specific case is genuinely
+//      unreachable, write down the exact reason and stop — a false
+//      "done" is worse than an honest blocker, because it poisons the
+//      orchestrator's re-measure (L2).
 func ConductorTaskSkill() skills.Skill {
 	return skills.Skill{
 		Name:      "tasoki", // = dhnt.EncodeWord("task")
