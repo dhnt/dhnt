@@ -87,7 +87,7 @@ import (
 // concrete argv lives in ConductorSpec so the orchestration surface is
 // runtime config, not part of the content-addressed skill).
 const (
-	cmdPlan      = "pa" // bashy weave add — decompose the goal into queued issues
+	cmdPlan      = "pa" // SPRINT-PLAN via bashy weave add — decompose the goal into a BACKLOG of DISJOINT, right-sized, independently-verifiable sub-issues (one `weave add` per disjoint top-level scope), NOT one monolithic issue. Disjoint decomposition up front is what makes the parallel FLEET path reachable; a single goal-sized issue forces SEQUENTIAL (one agent) and forfeits the acceleration. Size each sub-task to one agent's reach; keep scopes non-overlapping so cmdParallel routes FLEET.
 	cmdComplex   = "bo" // is the goal complex? (exit 0 ⇒ yes ⇒ research first)
 	cmdResearch  = "re" // research the goal (only when complex) — incl. INSPECT THE REFERENCE impl/spec before calling a goal impossible (L7)
 	cmdFanout    = "fa" // bashy weave start — enlist one agent per open issue (VERIFY each clone is provisioned first, L1)
@@ -110,7 +110,7 @@ const (
 // (bounded judgement); the rest are deterministic command steps.
 func conductorSteps() []skills.Step {
 	return []skills.Step{
-		{Name: "sa", Primitive: PrimRun, Args: ref(cmdPlan)}, // PLAN: decompose + queue
+		{Name: "sa", Primitive: PrimRun, Args: ref(cmdPlan)}, // SPRINT-PLAN: decompose the goal into a DISJOINT backlog (many small non-overlapping issues), not one monolith — that is what unlocks the FLEET path below
 		{Branch: &skills.Branch{ // RESEARCH only when the goal is complex
 			Cond: skills.Check{Predicate: PredExit, Args: ref(cmdComplex)},
 			Then: []skills.Step{
