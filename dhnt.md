@@ -452,9 +452,12 @@ Esperanto can be imported after transliteration per the following:
 
 _English_
 
-English words are imported through lowercasing and the dhnt word-formation
-rules. Their conventional spellings are alternative forms related by these
-rules; no pair registration is required. Importing a word does not authorize
+English alphabet is the same as dhnt and its words can be imported as-is
+after converting upper case letters into lower cases: the lowercased word is
+itself an accepted dhnt form. Its canonical expansion follows by the dhnt
+word-formation rules (`ls` → `liso`, `bash` → `basohe`) and is used for
+identity, hashing and cross-language matching; nobody is required to write
+it. No pair registration is required. Importing a word does not authorize
 lowercasing executable source identifiers.
 
 _Chinese_
@@ -468,7 +471,8 @@ Languages in Latin and Cyrillic script can be imported after transliteration dis
 ## Compatibility and implementation status
 
 This revision specifies rule-derived spelling equivalence without migrating existing data
-or changing Go APIs, parser behavior, command dispatch, or content hashes.
+or changing Go APIs, command dispatch, or content hashes. Skill-CNL input now
+accepts alternative spellings while its output stays canonical.
 
 - `EncodeWord` and `EncodePhrase` already generate full-form strings by rule,
   without a dictionary. `EncodeWord` still accepts lowercase ASCII input only;
@@ -480,9 +484,15 @@ or changing Go APIs, parser behavior, command dispatch, or content hashes.
   alternative spelling of `liso`. Alternative-spelling acceptance and
   canonical-form validation are distinct operations.
 - The existing [Skill-CNL specification](skills/SPEC.md) continues to define
-  its own serialization grammar. Its canonical AST identifiers,
-  `LineariseDhnt`/`ParseDhnt` roundtrip, execution bindings, and `Identity`
-  hashes remain unchanged. That format is not Bash# source syntax.
+  its own serialization grammar. `ParseDhnt` now accepts rule-derived
+  alternative spellings on input: each keyword, name or atom token is read
+  by its expansion `N(token)`, so `skill ls fin` reads as
+  `sokilili liso fini`. A token whose expansion matches more than one entry
+  in the same grammatical position is reported as ambiguous, never guessed.
+  Output stays canonical: the AST stores only canonical forms, and its
+  identifiers, `LineariseDhnt`/`ParseDhnt` roundtrip, execution bindings,
+  and `Identity` hashes remain unchanged. That format is not Bash# source
+  syntax.
 - The existing `skills.Glossary` records application-specific meanings and
   labels for Skill-CNL. Its closed vocabulary does not define the set of all
   words admitted by dhnt's productive word rules. Its label normalization,
@@ -491,7 +501,6 @@ or changing Go APIs, parser behavior, command dispatch, or content hashes.
   cluster, so the encoder's output for words such as `you` (`yo·u`) conforms
   to the [Grammar](#grammar) section; no encoder or hash change is involved.
 
-Bash# token integration and any Skill-CNL migration require separate
-implementation work. An exhaustive vocabulary registry is not required or
+Bash# token integration requires separate implementation work. An exhaustive vocabulary registry is not required or
 planned by this spelling model. No new parser annotation notation, aliases
 in executors, or speech interface is introduced here.

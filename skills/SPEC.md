@@ -48,6 +48,18 @@ without a registry of pairs. Bash# owns executable source grammar. This
 document continues to define the existing Skill-CNL serialization grammar;
 it is not a Bash# grammar or a specification of Bash# command dispatch.
 
+**Input accepts alternative spellings; output stays canonical.** `ParseDhnt`
+reads every keyword, skill/step name, primitive, predicate, argument name,
+reference and closed-set atom (effect, latitude, on-fail policy) by its
+rule-derived expansion `N(token) = dhnt.EncodeWord(token)`: `ls` reads as
+`liso`, `bash` and `bsh` as `basohe`, and a canonical token such as `liso` or
+`aaa` reads as itself (`N` is idempotent). Numerals are read as written.
+Grammatical position resolves meaning first; if, within one position,
+`N(token)` matches more than one distinct entry, parsing fails with an
+ambiguity error naming the candidates. A token with no match keeps its
+error, which also shows `N(token)`. The AST stores only the canonical
+expansion, so `LineariseDhnt(ParseDhnt(conventional))` is the canonical text.
+
 Rule-derived spelling equivalence does not change AST identifiers, glossary
 label semantics, L1.5 bytes, execution bindings, or `Identity` hashes. The
 existing closed glossary serves this procedure language's meanings and
