@@ -65,9 +65,37 @@ go test ./eval/ -run TestSpellingLiveSmoke \
   -spelling-live-cmd "my-model-cli complete" -v
 ```
 
-Record the smoke results here (one row per task × arm):
+#### Smoke run 2 (2026-10-19)
 
-| task | arm | surface | equivalent | parses | correct | preserved |
-|---|---|---|---|---|---|---|
-| | | | | | | |
+The manager ran all 8 tasks × both arms (16 prompts) once against a small
+subscription Claude model, harness at 399d76b. Summary lines:
+
+canonical: 8/8 surface, 8/8 equivalent, 7/8 parse, 6/8 correct, 8/8 preserved
+conventional: 8/8 surface, 8/8 equivalent, 6/8 parse, 6/8 correct, 8/8 preserved
+
+The failures were identical across arms — prompt defects, not spelling:
+
+- homonym-liso: the prompt never showed the contract form, so the model
+  wrote "sokire liso" (canonical arm) or put "ensure ls" after the step
+  (conventional arm). Fixed by adding the ensure form (`enisure
+  <predicate> fini` plus a LineariseDhnt-built contract example from a
+  real AST, like the worked example) to the shared grammar note for that
+  task, identical in both arms.
+- preserve-rewrite: the draft line ran into the instruction ("... fini
+  fini Put the rewritten skill ..."), and the conventional arm answered
+  it saw no conventional draft. Fixed by putting the draft on its own
+  line between clear delimiters, identical in both arms.
+
+The earlier run 1 was invalid, not a result: its prompts lacked the
+Layer 1.5 grammar teaching, so only 1/16 outputs parsed.
+
+Interpretation: n=8 tasks, one model, one run; both arms reached the
+requested surface 8/8 with equal correctness, so this smoke shows no
+spelling penalty for conventional input with the current parser and no
+measured benefit. It is not evidence for the hypothesis either way.
+
+#### Smoke run 3 (placeholder)
+
+Reserved for the manager's rerun with the fixed prompts. Record the two
+summary lines, any remaining failures, and the interpretation here.
 

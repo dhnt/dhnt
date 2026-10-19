@@ -412,6 +412,87 @@ func sameSurfaceSet(a, b []string) bool {
 	return true
 }
 
+// The preserve-rewrite draft must sit on its own line between clear
+// delimiters, identical in both arms: smoke run 2 showed the draft running
+// into the instruction ("... fini fini Put the rewritten skill ...") and
+// the conventional arm answering it saw no conventional draft.
+func TestSpelling_PreserveRewriteDraftDelimited(t *testing.T) {
+	var task SpellingTask
+	foundTask := false
+	for _, tc := range SpellingTasks() {
+		if tc.Name == "preserve-rewrite" {
+			task, foundTask = tc, true
+		}
+	}
+	if !foundTask {
+		t.Fatal("preserve-rewrite task missing")
+	}
+	block := spellingDraftBegin + "\n" + spellingDraftLine + "\n" + spellingDraftEnd
+	for _, p := range []string{task.PromptCanonical, task.PromptConventional} {
+		if !strings.Contains(p, block) {
+			t.Errorf("prompt missing delimited draft block %q:\n%s", block, p)
+		}
+		lines := strings.Split(p, "\n")
+		found := false
+		for i, ln := range lines {
+			if strings.TrimSpace(ln) == spellingDraftLine {
+				found = true
+				if i == 0 || strings.TrimSpace(lines[i-1]) != spellingDraftBegin {
+					t.Errorf("draft line not preceded by %q:\n%s", spellingDraftBegin, p)
+				}
+				if i+1 >= len(lines) || strings.TrimSpace(lines[i+1]) != spellingDraftEnd {
+					t.Errorf("draft line not followed by %q:\n%s", spellingDraftEnd, p)
+				}
+			}
+		}
+		if !found {
+			t.Errorf("draft not on its own line:\n%s", p)
+		}
+		if strings.Contains(p, spellingDraftLine+" Put") ||
+			strings.Contains(p, spellingDraftLine+" "+spellingFenceAnswer[:3]) {
+			t.Errorf("draft runs into the instruction on one line:\n%s", p)
+		}
+	}
+	if !strings.Contains(task.PromptCanonical, block) ||
+		!strings.Contains(task.PromptConventional, block) {
+		t.Errorf("delimited draft block must be identical in both arms")
+	}
+}
+
+// The homonym task must show the contract form: smoke run 2 showed the
+// model writing "sokire liso" (canonical) or putting "ensure ls" after
+// the step (conventional) because the prompt never showed the ensure
+// form. The shared note carries a LineariseDhnt-built example that parses.
+func TestSpelling_HomonymEnsureExampleParses(t *testing.T) {
+	var canon, conv string
+	for _, tc := range SpellingTasks() {
+		if tc.Name == "homonym-liso" {
+			canon, conv = tc.PromptCanonical, tc.PromptConventional
+		}
+	}
+	if canon == "" || conv == "" {
+		t.Fatal("homonym-liso task missing")
+	}
+	for _, p := range []string{canon, conv} {
+		if !strings.Contains(p, "enisure <predicate> fini") {
+			t.Errorf("homonym prompt missing the ensure form statement:\n%s", p)
+		}
+		if !strings.Contains(p, spellingEnsureExampleLine) {
+			t.Errorf("homonym prompt missing the ensure example line %q:\n%s",
+				spellingEnsureExampleLine, p)
+		}
+	}
+	if _, err := skills.ParseDhnt(spellingEnsureExampleLine); err != nil {
+		t.Errorf("ensure example does not parse: %v (%q)",
+			err, spellingEnsureExampleLine)
+	}
+	got := mustParseDhnt(t, spellingEnsureExampleLine)
+	if len(got.Contract) == 0 {
+		t.Errorf("ensure example carries no contract clause: %q",
+			spellingEnsureExampleLine)
+	}
+}
+
 // A model failure is recorded on that arm's verdict; the paired run still
 // completes the remaining arms and tasks.
 func TestSpelling_ModelError(t *testing.T) {

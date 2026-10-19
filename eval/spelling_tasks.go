@@ -38,6 +38,34 @@ func SpellingExampleLine() string {
 	return spellingExampleLine
 }
 
+// spellingEnsureExampleLine is the contract-clause example shown in the
+// homonym task's shared grammar note. It is rendered via LineariseDhnt
+// from a real AST, so it parses by construction. Its vocabulary
+// (teto/mimo/runi) shares no word with any task surface form in either
+// spelling.
+var spellingEnsureExampleLine = mustLineariseDhnt(skills.Skill{
+	Name:     "teto",
+	Contract: []skills.Check{{Predicate: "mimo"}},
+	Steps:    []skills.Step{{Name: "runi", Primitive: "loge"}},
+})
+
+// spellingEnsureNote is the contract-form note shared identically by both
+// arms of the homonym task: the ensure form plus the LineariseDhnt-built
+// example line.
+func spellingEnsureNote() string {
+	return "A contract clause has the form `enisure <predicate> fini`. " +
+		"Contract example:\n" + spellingEnsureExampleLine + "\n"
+}
+
+// spellingDraftBegin/End frame the preserve-rewrite draft on its own
+// line, identical in both arms so the model can see where the draft ends
+// and the instruction resumes.
+const (
+	spellingDraftBegin = "--- draft ---"
+	spellingDraftEnd   = "--- end draft ---"
+	spellingDraftLine  = "sokilili taso sotepo ls loge fini fini"
+)
+
 // spellingTeachGrammar is the teaching block shared identically by both
 // arms of every prompt: the Layer 1.5 grammar, the worked example, and the
 // one-line step form. The task sentence follows it; only that sentence's
@@ -163,12 +191,14 @@ func SpellingTasks() []SpellingTask {
 			// the meaning (dhnt.md, "Homonyms and context").
 			Name: "homonym-liso",
 			PromptCanonical: spellingPrompt("canonical", "homonym-liso",
-				"Author a dhnt skill named `taso` whose contract is one ensure clause "+
+				spellingEnsureNote()+
+					"Author a dhnt skill named `taso` whose contract is one ensure clause "+
 					"with predicate `liso`"+exact+" (here it means \"the listing is sorted\", not the listing step) "+
 					"and one leaf step `alile` invoking primitive `loge`.",
 				spellingBareAnswer),
 			PromptConventional: spellingPrompt("conventional", "homonym-liso",
-				"Author a dhnt skill named `taso` whose contract is one ensure clause "+
+				spellingEnsureNote()+
+					"Author a dhnt skill named `taso` whose contract is one ensure clause "+
 					"with predicate `ls`"+exact+" (here it means \"the listing is sorted\", not the listing step) "+
 					"and one leaf step `alile` invoking primitive `loge`.",
 				spellingBareAnswer),
@@ -212,12 +242,12 @@ func SpellingTasks() []SpellingTask {
 			PromptCanonical: spellingPrompt("canonical", "preserve-rewrite",
 				"Rewrite this conventional draft using the spelling `liso`, preserving EXACTLY the flag `-l`, "+
 					"the path ./notes/ls, and the quoted text \"My Files\":\n"+
-					"sokilili taso sotepo ls loge fini fini",
+					spellingDraftBegin+"\n"+spellingDraftLine+"\n"+spellingDraftEnd+"\n",
 				spellingFenceAnswer),
 			PromptConventional: spellingPrompt("conventional", "preserve-rewrite",
 				"Rewrite this conventional draft using the spelling `ls`, preserving EXACTLY the flag `-l`, "+
 					"the path ./notes/ls, and the quoted text \"My Files\":\n"+
-					"sokilili taso sotepo ls loge fini fini",
+					spellingDraftBegin+"\n"+spellingDraftLine+"\n"+spellingDraftEnd+"\n",
 				spellingFenceAnswer),
 			Intended:     []string{"liso"},
 			Conventional: []string{"ls"},
