@@ -94,8 +94,28 @@ requested surface 8/8 with equal correctness, so this smoke shows no
 spelling penalty for conventional input with the current parser and no
 measured benefit. It is not evidence for the hypothesis either way.
 
-#### Smoke run 3 (placeholder)
+#### Smoke run 3 (2026-10-19)
 
-Reserved for the manager's rerun with the fixed prompts. Record the two
-summary lines, any remaining failures, and the interpretation here.
+The manager reran all 8 tasks × both arms (16 prompts) once against the
+same small subscription Claude model, harness at 9040aae (fixed prompts).
+Summary lines:
+
+canonical: 8/8 surface, 8/8 equivalent, 8/8 parse, 8/8 correct, 8/8 preserved
+conventional: 8/8 surface, 8/8 equivalent, 8/8 parse, 7/8 correct, 8/8 preserved
+
+The one failure was preserve-rewrite, conventional arm. The model
+returned "sokilili taso sotepo ls ls fini fini": it also replaced the
+primitive loge with ls, a semantic error, not a spelling one (surface,
+parse and preservation passed). The canonical arm made a similar
+substitution in run 2, which suggests the rewrite instruction is
+ambiguous about which word to respell; a later prompt revision should
+name the step explicitly.
+
+Interpretation: n=8, one model, one run per arm. Both arms used the
+requested surface spelling 8/8 and parsed 8/8; correctness differs by
+one task with a non-spelling cause. With the current parser,
+conventional spelling shows no penalty; no benefit is measured. A real
+test of the hypothesis needs more tasks, several models (including
+weaker ones), repeated runs, and tasks where keywords are also spelled
+conventionally (in this harness keywords are canonical in both arms).
 
