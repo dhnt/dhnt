@@ -3,7 +3,7 @@
 ## Vocabulary and executable syntax
 
 **dhnt-lang defines vocabulary and canonical word formation; Bash# defines
-executable grammar and syntax.** dhnt-lang is one language: its words are defined here, and its syntax and grammar are defined by Bash#; the Grammar section below covers word formation (syllables, stress and contraction). Conventional spellings are accepted
+executable grammar and syntax.** dhnt-lang is one language: its words are defined here, and its [syntax and grammar are defined by Bash#](https://github.com/bashsharp/bashsharp#grammar); the Grammar section below covers word formation (syllables, stress and contraction). The Bash# grammar is normative. Conventional spellings are accepted
 alternatives when the existing dhnt word-formation, contraction, and loan-word
 rules relate them to a canonical word. For example, `ls` expands to `liso`
 by rule; no vocabulary entry needs to be registered for this pair.
