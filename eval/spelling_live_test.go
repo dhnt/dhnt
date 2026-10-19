@@ -50,4 +50,8 @@ func TestSpellingLiveSmoke(t *testing.T) {
 	}
 	t.Logf("live smoke results for %q:\n%s", *spellingLiveCmd,
 		RenderSpellingMarkdown(verdicts, sum))
+	for _, v := range verdicts {
+		t.Logf("task=%s arm=%s output=%q parse-err=%q model-err=%q",
+			v.Task, v.Arm, v.Output, v.ParseErr, v.ModelErr)
+	}
 }
