@@ -11,6 +11,8 @@ package eval
 import (
 	"strings"
 	"testing"
+
+	"github.com/dhnt/dhnt/skills"
 )
 
 // Spelling equivalence is defined by equal EncodeWord expansions
@@ -254,6 +256,160 @@ func TestSpelling_WrongSurfaceArmA(t *testing.T) {
 	if !conv.Surface || !conv.Equivalent {
 		t.Errorf("conventional arm answering ls should be on-surface and equivalent: %+v", conv)
 	}
+}
+
+// Every spelling prompt teaches the Layer 1.5 format: each prompt carries
+// the worked example line (rendered via LineariseDhnt from a real AST), the
+// example parses and shares no word with any task surface form, and the two
+// arms differ only in the task's surface words (modulo the arm marker).
+func TestSpelling_PromptsTeachGrammar(t *testing.T) {
+	tasks := SpellingTasks()
+	example := SpellingExampleLine()
+	if _, err := skills.ParseDhnt(example); err != nil {
+		t.Fatalf("worked example does not parse: %v (%q)", err, example)
+	}
+	exampleID, err := skills.Identity(mustParseDhnt(t, example))
+	if err != nil {
+		t.Fatalf("worked example has no identity: %v", err)
+	}
+	for _, task := range tasks {
+		wantID, err := skills.Identity(task.Expected)
+		if err != nil {
+			t.Fatalf("%s: expected AST has no identity: %v", task.Name, err)
+		}
+		if wantID == exampleID {
+			t.Errorf("%s: expected AST equals the worked example; the example must stay unrelated", task.Name)
+		}
+	}
+	forbidden := map[string]bool{}
+	for _, task := range tasks {
+		for _, w := range append(append([]string{}, task.Intended...), task.Conventional...) {
+			forbidden[strings.ToLower(w)] = true
+		}
+	}
+	for _, w := range spellingWords(example) {
+		if forbidden[w] {
+			t.Errorf("worked example %q shares task word %q", example, w)
+		}
+	}
+	for _, task := range tasks {
+		prompts := []string{task.PromptCanonical, task.PromptConventional}
+		for i, p := range prompts {
+			if !strings.Contains(p, example) {
+				t.Errorf("%s arm %d: prompt missing worked example %q", task.Name, i, example)
+			}
+			if !strings.Contains(p, "A step has the form") {
+				t.Errorf("%s arm %d: prompt missing the step-form statement", task.Name, i)
+			}
+		}
+		if task.Name == "preserve-rewrite" {
+			for _, p := range prompts {
+				if !strings.Contains(p, "fenced block") || !strings.Contains(p, "args:") {
+					t.Errorf("%s: rewrite prompt must keep the fence plus args line", task.Name)
+				}
+				if strings.Contains(p, "no code fence") {
+					t.Errorf("%s: rewrite prompt must not ask for the bare skill line", task.Name)
+				}
+			}
+		} else {
+			for _, p := range prompts {
+				if !strings.Contains(p, "no code fence and no prose") {
+					t.Errorf("%s: prompt must ask for the bare skill line", task.Name)
+				}
+			}
+		}
+		// The arms differ only in the task's surface words: normalise the
+		// arm marker, mask every surface word, and require equality. The
+		// marker itself must still name its arm (the stub routes on it).
+		if !strings.Contains(task.PromptCanonical, "Spelling arm: canonical.") {
+			t.Errorf("%s: canonical prompt missing its arm marker", task.Name)
+		}
+		if !strings.Contains(task.PromptConventional, "Spelling arm: conventional.") {
+			t.Errorf("%s: conventional prompt missing its arm marker", task.Name)
+		}
+		norm := func(p string) string {
+			p = strings.ReplaceAll(p, "Spelling arm: canonical.", "Spelling arm: ARM.")
+			p = strings.ReplaceAll(p, "Spelling arm: conventional.", "Spelling arm: ARM.")
+			return maskSurfaceWords(p, append(task.Intended, task.Conventional...))
+		}
+		if norm(task.PromptCanonical) != norm(task.PromptConventional) {
+			t.Errorf("%s: arms differ beyond the task surface words:\ncanonical:\n%s\nconventional:\n%s",
+				task.Name, task.PromptCanonical, task.PromptConventional)
+		}
+		if sameSurfaceSet(task.Intended, task.Conventional) {
+			// Same surface words: only the arm marker may differ.
+			if task.PromptCanonical != task.PromptConventional &&
+				strings.ReplaceAll(task.PromptCanonical, "Spelling arm: canonical.", "Spelling arm: ARM.") !=
+					strings.ReplaceAll(task.PromptConventional, "Spelling arm: conventional.", "Spelling arm: ARM.") {
+				t.Errorf("%s: same surface words but prompts differ beyond the arm marker", task.Name)
+			}
+		} else if task.PromptCanonical == task.PromptConventional {
+			t.Errorf("%s: different surface words but prompts identical", task.Name)
+		}
+	}
+}
+
+func mustParseDhnt(t *testing.T, src string) skills.Skill {
+	t.Helper()
+	s, err := skills.ParseDhnt(src)
+	if err != nil {
+		t.Fatalf("ParseDhnt(%q): %v", src, err)
+	}
+	return s
+}
+
+// maskSurfaceWords replaces every maximal ASCII-letter run equal
+// (case-insensitively) to a surface word with a placeholder, so two prompts
+// that differ only in surface words normalise to the same string.
+// Whole-word runs avoid the wug/wuge prefix trap of substring replacement.
+func maskSurfaceWords(s string, words []string) string {
+	set := map[string]bool{}
+	for _, w := range words {
+		set[strings.ToLower(w)] = true
+	}
+	var b strings.Builder
+	i := 0
+	isLetter := func(c byte) bool {
+		return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
+	}
+	for i < len(s) {
+		if !isLetter(s[i]) {
+			b.WriteByte(s[i])
+			i++
+			continue
+		}
+		j := i
+		for j < len(s) && isLetter(s[j]) {
+			j++
+		}
+		if set[strings.ToLower(s[i:j])] {
+			b.WriteString("\x00")
+		} else {
+			b.WriteString(s[i:j])
+		}
+		i = j
+	}
+	return b.String()
+}
+
+// sameSurfaceSet reports whether two surface-word lists name the same set
+// (case-insensitively).
+func sameSurfaceSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	set := map[string]int{}
+	for _, w := range a {
+		set[strings.ToLower(w)]++
+	}
+	for _, w := range b {
+		k := strings.ToLower(w)
+		if set[k] == 0 {
+			return false
+		}
+		set[k]--
+	}
+	return true
 }
 
 // A model failure is recorded on that arm's verdict; the paired run still
