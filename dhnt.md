@@ -216,18 +216,11 @@ _Binary_
 
 ## Grammar
 
-This historical section describes word formation and contraction, not the
-executable grammar supplied by Bash#.
-
 dhnt has 5 vowel characters and 21 consonant characters and a total of 110 syllables.
 
 A word is a sequence of one or more syllables and stress always falls on the second last.
 
-There are no clusters of vowels or consonants. A vowel letter written after
-another vowel does not form a cluster or diphthong with it: it is a syllable
-of its own. For example, _you_ is the two syllables _yo·u_, stressed on _yo_
-(the second last), unlike the single-syllable English word. In writing,
-syllables may also be contracted per the following rules:
+There are no clusters of vowels or consonants. In writing however, syllables may be contracted per the following rules:
 
 - Consonant character y between two vowels can be omitted.
 - Vowel character in a consonant-vowel syllable from the alphabet table can be omitted if it is followed by a consonant or is the last in a word.
@@ -235,6 +228,11 @@ syllables may also be contracted per the following rules:
 For example:
 
 The word _ayaya_ can be shortened to _aaa_
+
+A vowel letter written after another vowel does not form a cluster or
+diphthong with it: it is a syllable of its own. For example, _you_ is the two
+syllables _yo·u_, stressed on _yo_ (the second last), unlike the
+single-syllable English word; _aaa_ is the three syllables _a·a·a_.
 
 
 _dhnt_ is equivalent to _dahenito_ as d h n t are da he ni to respectively in the alphabet table.
@@ -407,11 +405,7 @@ Words in any other languages - programming, constructed, or natural - can be tra
 
 _Programming Languages_
 
-Programming-language identifiers can supply candidate dhnt vocabulary.
-Sharing an alphabet alone does not establish a shared grammar or vocabulary
-identity. Bash# supplies executable syntax for the unified language; imports
-from other programming languages retain their own syntax unless an explicit
-integration defines otherwise.
+As most programming languages use the same 26 characters, they are considered dhnt dialects.
 
 _Esperanto_
 
@@ -452,10 +446,10 @@ Esperanto can be imported after transliteration per the following:
 
 _English_
 
-English alphabet is the same as dhnt and its words can be imported as-is
-after converting upper case letters into lower cases: the lowercased word is
-itself an accepted dhnt form. Its canonical expansion follows by the dhnt
-word-formation rules (`ls` → `liso`, `bash` → `basohe`) and is used for
+English alphabet is the same as dhnt and its words can be imported as-is after converting upper case letters into lower cases.
+
+The lowercased word is itself an accepted dhnt form. Its canonical expansion
+follows by the dhnt word-formation rules (`ls` → `liso`, `bash` → `basohe`) and is used for
 identity, hashing and cross-language matching; nobody is required to write
 it. No pair registration is required. Importing a word does not authorize
 lowercasing executable source identifiers.
