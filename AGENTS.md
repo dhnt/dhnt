@@ -4,16 +4,9 @@
 
 `dhnt.md` defines the language; `skills/SPEC.md` defines the Skill-CNL. Both win over implementation. If spec and code disagree, surface the mismatch — do not paper over it.
 
-dhnt-lang owns canonical vocabulary and word rules; Bash# owns executable
-grammar/syntax. Alternative spellings follow the existing dhnt rules:
-`ls` expands to `liso` without registering a pair. Do not introduce an
-exhaustive registry, one-preferred-alias restriction, or written/spoken split.
-Several spellings can share an expansion; retain the source spelling for
-exact reproduction and distinguish spelling equivalence from meaning or
-execution binding. Preserve encoder behavior, Skill-CNL AST identifiers,
-serialization and hashes. Do not rewrite source strings, flags or paths.
-Homonyms are permitted: context may distinguish meanings sharing a canonical
-form. This does not alter existing runtime name resolution or glossary checks.
+dhnt-lang defines vocabulary and canonical word formation; Bash# owns executable syntax;
+conventional spellings (ls) are accepted and expand to canonical forms (liso) by rule;
+see [dhnt.md#canonical-words-and-rule-derived-alternative-spellings](dhnt.md#canonical-words-and-rule-derived-alternative-spellings).
 
 The module is `github.com/dhnt/dhnt`, pure Go, deps: `gopkg.in/yaml.v3`, `github.com/creack/pty`. No CGO, no build tags, Go 1.22+.
 

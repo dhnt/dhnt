@@ -14,19 +14,9 @@
 
 ### Vocabulary and syntax boundary
 
-dhnt-lang defines canonical vocabulary and word rules; Bash# defines executable
-grammar/syntax. Conventional forms follow the current dhnt rules: `ls` expands
-to `liso` without a registry of pairs. Canonical forms remain strict; multiple
-alternative spellings can share an expansion. Do not require one preferred
-alias or describe the distinction as written/spoken forms.
-
-Retain original spelling when exact source reproduction matters. Rule-derived
-spelling equivalence is separate from meaning and execution binding. Preserve
-encoder behavior, canonical Skill-CNL AST identifiers, serialization and
-hashes. Its closed glossary is application-specific, not an exhaustive dhnt
-vocabulary. Do not rewrite source strings, flags or paths.
-Homonyms sharing a canonical form are permitted; context determines the sense.
-Existing runtime name resolution and glossary duplicate checks remain intact.
+dhnt-lang defines vocabulary and canonical word formation; Bash# owns executable syntax;
+conventional spellings (ls) are accepted and expand to canonical forms (liso) by rule;
+see [dhnt.md#canonical-words-and-rule-derived-alternative-spellings](dhnt.md#canonical-words-and-rule-derived-alternative-spellings).
 
 ## Building and Running
 The project requires **Go 1.22+**.

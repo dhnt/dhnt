@@ -11,16 +11,9 @@ Two things ship together:
 
 The spec is the authority; the Go module is the machine-checkable instance. When the encoder and the spec disagree, that is a bug to surface, not to paper over.
 
-dhnt-lang defines canonical vocabulary and word formation; Bash# defines
-executable grammar/syntax. Alternative spellings derive from the current
-dhnt rules: `ls` expands to `liso` without pair registration. Canonical rules
-remain strict; there is no exhaustive registry or single preferred alias.
-This is not a written/spoken split. Expansion can be many-to-one, so preserve
-original spelling when needed and distinguish equivalence from meaning and
-execution binding. Preserve encoder APIs, canonical skill identifiers,
-serialization and hashes; do not rewrite source strings, flags or paths.
-Homonyms may share a canonical form; context resolves meaning. Preserve
-existing runtime name resolution and glossary duplicate checks.
+dhnt-lang defines vocabulary and canonical word formation; Bash# owns executable syntax;
+conventional spellings (ls) are accepted and expand to canonical forms (liso) by rule;
+see [dhnt.md#canonical-words-and-rule-derived-alternative-spellings](dhnt.md#canonical-words-and-rule-derived-alternative-spellings).
 
 ## Commands
 
