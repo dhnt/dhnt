@@ -24,3 +24,49 @@ To produce the paper's E1 numbers, run `--real` across ≥2 providers (incl. a
 small/weak model) on a task suite and tabulate verdict variance vs. output
 variance. The remaining paper experiments (E2–E5) are described in
 `../docs/positioning-and-standardization.md` §4.
+
+## Spelling eval — canonical vs conventional spelling (`spelling.go`)
+
+Tests the hypothesis in `../README.md` ("Familiar spelling and LLMs"): every
+English word is already an accepted dhnt form as-is (lowercased), so
+conventional spellings (`ls`, `bash`, `cd`) are the familiar authoring
+surface while canonical spellings (`liso`, `basohe`, `cada`) are the machine
+form. `RunSpelling` runs paired tasks — the same skill-authoring/rewriting
+task and the same checks, arm A prompted for canonical spellings, arm B for
+conventional ones — against one model function (`prompt -> text`), and scores
+each arm on five columns: (a) surface (the exact words the arm asked for:
+canonical for arm A, conventional for arm B), (b) equivalence via
+`EncodeWord` (`ls` ~ `liso`), (c) parser acceptance via `skills.ParseDhnt`,
+(d) semantic correctness via AST `Identity`, (e) exact preservation of flags,
+paths, and quoted text. The suite covers shared expansions (`bash`/`bsh`), an unseen
+nonce word (`wug`), a homonym case (`liso` as predicate vs step), `aaa`
+(canonical as-is), the `ls`/`cd` basics, and a rewriting task with literal
+preservation.
+
+Column (c) is measured, not assumed: against today's parser arm B reads
+`parses: no`, and the same harness shows the gap closing once the parser
+accepts conventional spellings (parallel story S2) — no harness change.
+Column (a) is what tells the arms apart when the encoder accepts both: arm A
+answering `ls` fails surface but still passes equivalence.
+
+```sh
+go test ./eval/                                   # hermetic (stub transcripts only)
+```
+
+### Live smoke run (opt-in, skipped by default)
+
+The manager invokes this once on a subscription model. The prompt travels on
+the command's stdin; the completion is read from its stdout. This worker did
+not run it and used no metered keys.
+
+```sh
+go test ./eval/ -run TestSpellingLiveSmoke \
+  -spelling-live-cmd "my-model-cli complete" -v
+```
+
+Record the smoke results here (one row per task × arm):
+
+| task | arm | surface | equivalent | parses | correct | preserved |
+|---|---|---|---|---|---|---|
+| | | | | | | |
+
