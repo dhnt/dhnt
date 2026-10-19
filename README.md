@@ -14,7 +14,7 @@ This repository holds two things:
 Canonical dhnt words are built from the 26 lowercase ASCII letters `a–z`, organised
 into five vowel-group rows that drive a CV-only phonotactic rule. The
 language is *tam-less* (no tense, aspect, mood) and inflection-free.
-**dhnt-lang defines vocabulary; [Bash#](https://github.com/bashsharp/bashsharp#vocabulary-and-syntax) defines executable grammar and syntax.**
+**dhnt-lang is one language: dhnt-lang defines its words, and its syntax and grammar are defined by [Bash#](https://github.com/bashsharp/bashsharp#vocabulary-and-syntax).**
 Conventional spellings are alternative forms derived by the current dhnt
 rules: `ls` expands to `liso` without registering a pair. Canonical words
 still follow the same word and phonetic rules. Both forms can be written;

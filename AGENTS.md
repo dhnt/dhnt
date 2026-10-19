@@ -4,7 +4,7 @@
 
 `dhnt.md` defines the language; `skills/SPEC.md` defines the Skill-CNL. Both win over implementation. If spec and code disagree, surface the mismatch — do not paper over it.
 
-dhnt-lang defines vocabulary and canonical word formation; Bash# owns executable syntax;
+dhnt-lang is one language: dhnt-lang defines its words, and its syntax and grammar are defined by Bash#;
 conventional spellings (ls) are accepted and expand to canonical forms (liso) by rule;
 see [dhnt.md#canonical-words-and-rule-derived-alternative-spellings](dhnt.md#canonical-words-and-rule-derived-alternative-spellings).
 
