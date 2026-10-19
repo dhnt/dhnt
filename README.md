@@ -14,7 +14,7 @@ This repository holds two things:
 Canonical dhnt words are built from the 26 lowercase ASCII letters `a–z`, organised
 into five vowel-group rows that drive a CV-only phonotactic rule. The
 language is *tam-less* (no tense, aspect, mood) and inflection-free.
-**dhnt-lang defines vocabulary; Bash# defines executable grammar and syntax.**
+**dhnt-lang defines vocabulary; [Bash#](https://github.com/bashsharp/bashsharp#vocabulary-and-syntax) defines executable grammar and syntax.**
 Conventional spellings are alternative forms derived by the current dhnt
 rules: `ls` expands to `liso` without registering a pair. Canonical words
 still follow the same word and phonetic rules. Both forms can be written;
@@ -40,9 +40,9 @@ and context resolves their intended sense. `ls` and `liso` for the listing
 command are two spellings of one word; other meanings sharing that form need
 not be merged. Bash# and runtime name resolution determine executable bindings.
 
-The existing encoder implements lowercase ASCII vowel insertion. This
-revision documents its place in the language; it does not add Bash# command
-resolution or implement all source-language import rules. Canonical
+The existing encoder implements lowercase ASCII vowel insertion. Skill-CNL
+ParseDhnt now accepts conventional spellings on input while output stays
+canonical (see the Compatibility section of dhnt.md). Canonical
 validation, Skill-CNL serialization and hashes, and command dispatch are
 unchanged. See [rule-derived alternative spellings](dhnt.md#canonical-words-and-rule-derived-alternative-spellings)
 and [compatibility notes](dhnt.md#compatibility-and-implementation-status).
