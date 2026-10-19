@@ -1,5 +1,31 @@
 # The DHNT Language Specification
 
+## Vocabulary and executable syntax
+
+**dhnt-lang defines vocabulary and canonical word formation; Bash# defines
+executable grammar and syntax.** Conventional spellings are accepted
+alternatives when the existing dhnt word-formation, contraction, and loan-word
+rules relate them to a canonical word. For example, `ls` expands to `liso`
+by rule; no vocabulary entry needs to be registered for this pair.
+
+The canonical word still follows dhnt's alphabet, syllable, and phonetic
+rules. This is a distinction between canonical and alternative spellings,
+not between written and spoken forms; either spelling can appear in text.
+The rules apply productively to words, rather than enumerating every possible
+word in every source language.
+
+The [Bash# language](https://github.com/bashsharp/bashsharp) owns executable
+syntax, including token boundaries, quoting, operators, declarations, and
+reserved syntactic forms. Alternative spellings do not add grammar productions
+or change how Bash# parses source. Bashy is a runtime/CLI consuming that
+language, not a second vocabulary specification.
+
+**Status:** the spelling model below formalizes the role of the existing
+dhnt rules. The encoder already implements vowel insertion for lowercase
+ASCII words; general Bash# spelling resolution is not introduced by this
+revision. Existing encoder APIs and Skill-CNL serialization retain their behavior;
+see [Compatibility and implementation status](#compatibility-and-implementation-status).
+
 ## Alphabet
 
 DHNT includes 26 characters from [UTF-8](https://en.wikipedia.org/wiki/UTF-8) in the hex range [0061-007A]
@@ -190,6 +216,9 @@ _Binary_
 
 ## Grammar
 
+This historical section describes word formation and contraction, not the
+executable grammar supplied by Bash#.
+
 dhnt has 5 vowel characters and 21 consonant characters and a total of 110 syllables.
 
 A word is a sequence of one or more syllables and stress always falls on the second last.
@@ -210,6 +239,103 @@ As you may have noticed now, d h n t are the last characters of the first four v
 
 
 ## Vocabulary
+
+### Canonical words and rule-derived alternative spellings
+
+An alternative spelling is accepted by the applicable dhnt rules, not by
+membership in a registry. Canonical forms continue to obey the existing
+alphabet and word rules. Source-language import rules govern transliteration
+or romanization where needed; contractions follow the existing contraction
+rules. The examples below illustrate these rules, not a closed dictionary.
+
+For lowercase ASCII words, the existing reference encoder expands a spelling
+by scanning from left to right:
+
+1. A vowel emits itself.
+2. A consonant followed by a vowel emits that consonant and vowel, consuming
+   both input characters.
+3. A consonant followed by another consonant or the end of the word emits
+   itself followed by its alphabet-row vowel.
+
+Thus `l` receives `i`, and `s` receives `o`: `ls` becomes `liso`. An
+already expanded `liso` stays `liso`. `bash` and its contraction `bsh` both
+expand to `basohe`. No registration or choice of one preferred alias is
+required for any of these spellings.
+
+| Alternative spelling | Canonical expansion |
+|---|---|
+| `ls` | `liso` |
+| `cd` | `cada` |
+| `bash`, `bsh` | `basohe` |
+| `hello`, `hllo` | `helilo` |
+| `dhnt` | `dahenito` |
+
+#### Equivalence and reversibility
+
+Let `N` denote the existing lowercase ASCII word expansion above. For inputs
+in that rule's domain, spelling equivalence is defined by equal expansions:
+
+```text
+x ~ y  iff  N(x) = N(y)
+N("ls") = N("liso") = "liso"
+N("bash") = N("bsh") = N("basohe") = "basohe"
+N(N(x)) = N(x)
+```
+
+`N` is mathematical notation here; the existing implementation is
+`EncodeWord`. This formalization does not claim that `EncodeWord` implements
+every source-language import or contraction rule in this specification.
+
+`liso ↔ ls` expresses spelling equivalence, not a globally invertible
+one-to-one function. Each supported input has a deterministic expansion, but
+several valid spellings can share it. The rules therefore do not select one
+original or preferred conventional spelling from a canonical form alone.
+A tool that must reproduce the original source must retain that spelling.
+For other languages, use the applicable documented import rules; do not
+invent a universal inverse, a translation, or a new transliteration rule.
+
+#### Homonyms and context
+
+Equal canonical spellings establish equivalence of form, not necessarily one
+meaning across all source languages or contexts. Distinct words or meanings
+may share a canonical form and be treated as homonyms. This is permitted,
+just as in natural languages; canonicalization need not give every meaning a
+globally unique spelling.
+
+`ls` and `liso`, when referring to the listing command, are alternative
+spellings of the same word, not two different meanings. If another word
+shares that canonical form, its meaning can remain distinct. Context such as
+the surrounding sentence, subject domain, source language, or syntactic role
+can distinguish the intended sense. If context is insufficient, ambiguity
+remains; a shared expansion does not justify guessing a meaning.
+
+A glossary can record meanings or bindings for a particular application, but
+an exhaustive glossary is not required to establish rule-derived spelling
+equivalence. Homonyms are not grounds for rejecting valid spellings or
+requiring new registrations. In executable source, Bash# and the runtime's
+name-resolution rules determine bindings; spelling normalization alone does
+not decide which command runs.
+
+#### Token boundaries and execution
+
+Word normalization and source-code rewriting are separate operations. Bash#
+determines token boundaries and preserves its existing parsing and execution
+semantics. This revision does not replace source tokens with their canonical
+expansions or make arbitrary argument data into vocabulary tokens.
+
+For example, `ls -l "My Files"` remains executable source with exactly those
+spellings. The dhnt rules explain the relation between `ls` and `liso`;
+they do not rewrite `-l`, `"My Files"`, `./ls`, `ReadMe`, or quoted text such
+as `"你好"`. Lowercasing prescribed when importing a word into dhnt does not
+authorize changing case-sensitive command names, variables or paths.
+
+Rule-derived equivalence neither installs an executable named `liso` nor
+makes the current shell dispatch it as `ls`. A future Bash# integration must
+specify the token positions it handles and how it resolves executable
+bindings when spellings share an expansion. Such application-specific
+bindings are not a registry of all possible dhnt words.
+
+### Vocabulary classes
 
 *Reserved Word*
 
@@ -277,7 +403,11 @@ Words in any other languages - programming, constructed, or natural - can be tra
 
 _Programming Languages_
 
-As most programming languages use the same 26 characters, they are considered dhnt dialects.
+Programming-language identifiers can supply candidate dhnt vocabulary.
+Sharing an alphabet alone does not establish a shared grammar or vocabulary
+identity. Bash# supplies executable syntax for the unified language; imports
+from other programming languages retain their own syntax unless an explicit
+integration defines otherwise.
 
 _Esperanto_
 
@@ -318,7 +448,10 @@ Esperanto can be imported after transliteration per the following:
 
 _English_
 
-English alphabet is the same as dhnt and its words can be imported as-is after converting upper case letters into lower cases.
+English words are imported through lowercasing and the dhnt word-formation
+rules. Their conventional spellings are alternative forms related by these
+rules; no pair registration is required. Importing a word does not authorize
+lowercasing executable source identifiers.
 
 _Chinese_
 
@@ -327,3 +460,36 @@ Chinese can be written in Pinyin - the standard Chinese romanization system and 
 _Latin and Cyrillic Script_
 
 Languages in Latin and Cyrillic script can be imported after transliteration disregarding capitalization and diacritics per ISO-9.
+
+## Compatibility and implementation status
+
+This revision specifies rule-derived spelling equivalence without migrating existing data
+or changing Go APIs, parser behavior, command dispatch, or content hashes.
+
+- `EncodeWord` and `EncodePhrase` already generate full-form strings by rule,
+  without a dictionary. `EncodeWord` still accepts lowercase ASCII input only;
+  `EncodePhrase` still lowercases and normalizes whitespace. Neither proves
+  unique meaning or serves as a source-code rewriting API. Language-specific
+  import rules described elsewhere are not all implemented by these APIs.
+- `IsCanonical` still validates full-form strings. In particular,
+  `IsCanonical("ls")` remains false even though `ls` is a rule-derived
+  alternative spelling of `liso`. Alternative-spelling acceptance and
+  canonical-form validation are distinct operations.
+- The existing [Skill-CNL specification](skills/SPEC.md) continues to define
+  its own serialization grammar. Its canonical AST identifiers,
+  `LineariseDhnt`/`ParseDhnt` roundtrip, execution bindings, and `Identity`
+  hashes remain unchanged. That format is not Bash# source syntax.
+- The existing `skills.Glossary` records application-specific meanings and
+  labels for Skill-CNL. Its closed vocabulary does not define the set of all
+  words admitted by dhnt's productive word rules. Its label normalization,
+  duplicate checks, and the catalog's alias behavior remain unchanged.
+- The historical "no clusters of vowels" sentence above and the current
+  encoder's acceptance of adjacent vowel-only syllables (for example,
+  `you`) are a pre-existing specification/implementation discrepancy.
+  Spelling equivalence does not resolve it or change either rule; phonotactic
+  reconciliation needs a separate change. The worked pairs here avoid it.
+
+Bash# token integration and any Skill-CNL migration require separate
+implementation work. An exhaustive vocabulary registry is not required or
+planned by this spelling model. No new parser annotation notation, aliases
+in executors, or speech interface is introduced here.

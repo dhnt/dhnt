@@ -11,29 +11,64 @@ This repository holds two things:
 
 ## What is dhnt?
 
-dhnt is built from the 26 lowercase ASCII letters `a–z`, organised
+Canonical dhnt words are built from the 26 lowercase ASCII letters `a–z`, organised
 into five vowel-group rows that drive a CV-only phonotactic rule. The
 language is *tam-less* (no tense, aspect, mood) and inflection-free.
-Loan words from any source language transform deterministically into
-dhnt-conformant strings, which means programming languages,
-constructed languages, and natural languages can all share one
-normalised vocabulary.
+**dhnt-lang defines vocabulary; Bash# defines executable grammar and syntax.**
+Conventional spellings are alternative forms derived by the current dhnt
+rules: `ls` expands to `liso` without registering a pair. Canonical words
+still follow the same word and phonetic rules. Both forms can be written;
+this is not a written/spoken split.
 
-A few worked examples:
+Examples of rule-derived equivalence:
 
-| Source         | dhnt          | abbreviated |
-|----------------|---------------|-------------|
-| `bash`         | `basohe`      | `bsh`       |
-| `cd`           | `cada`        | `cd`        |
-| `hello`        | `helilo`      | `hllo`      |
-| `thanks`       | `tohanikiso`  | `thanks`    |
-| `2018` (year)  | `jubajiahe`   | `bjah`      |
+| Alternative spelling | Canonical expansion |
+|----------------------|---------------------|
+| `ls`                 | `liso`              |
+| `cd`                 | `cada`              |
+| `bash`, `bsh`        | `basohe`            |
+| `hello`, `hllo`      | `helilo`            |
+
+There is no exhaustive registry and no one-preferred-alias restriction.
+Word-formation, contraction and source-language import rules determine valid
+forms. Expansion is deterministic where defined, but its inverse is not
+unique: `bash`, `bsh`, and `basohe` share a canonical expansion. Retain the
+original spelling when exact source reproduction matters.
+
+Shared canonical forms may also have distinct meanings: homonyms are allowed,
+and context resolves their intended sense. `ls` and `liso` for the listing
+command are two spellings of one word; other meanings sharing that form need
+not be merged. Bash# and runtime name resolution determine executable bindings.
+
+The existing encoder implements lowercase ASCII vowel insertion. This
+revision documents its place in the language; it does not add Bash# command
+resolution or implement all source-language import rules. Canonical
+validation, Skill-CNL serialization and hashes, and command dispatch are
+unchanged. See [rule-derived alternative spellings](dhnt.md#canonical-words-and-rule-derived-alternative-spellings)
+and [compatibility notes](dhnt.md#compatibility-and-implementation-status).
 
 See [`dhnt.md`](./dhnt.md) for the full specification including the
 alphabet table, syllable rules, contraction rules, numeral encoding
 (decimal `ju`, binary `bu`, hexadecimal `pu`), and the loan-word
 transformation rules for English, Chinese (via Pinyin), Esperanto,
 and Latin/Cyrillic scripts.
+
+## Familiar spelling and LLMs
+
+Models can be instructed to use canonical dhnt CNL. Rule-derived conventional
+spellings offer another authoring form without relaxing canonical word rules:
+the existing rules relate them to canonical expansions. A controlled
+language controls permitted vocabulary and structure; it does not require
+unfamiliar surface spelling. Bash# owns the executable structure, and command
+contracts and checks still determine validity beyond spelling.
+
+Familiar spellings may reduce unwanted spelling corrections and the burden of
+generating transformed words. This is an **unmeasured hypothesis**, not a
+reliability guarantee. Evaluate it with paired tasks, the same model/settings,
+the same meanings and checks, and canonical versus conventional-spelling inputs
+and outputs. Record spelling compliance, parser acceptance, and semantic/task
+correctness separately; include shared expansions, unseen words, and exact argument
+preservation. No such experiment is claimed by this documentation update.
 
 ## Why the Go reference implementation?
 
@@ -111,7 +146,12 @@ this set rather than fill new phases.
 ### `github.com/dhnt/dhnt/skills` — multilingual skill CNL
 
 A four-layer pipeline for authoring deterministic skill specifications
-that can be written and read in any natural language:
+that can be written and read in any natural language.
+
+This is the existing Skill-CNL format and its serialization grammar. It remains
+supported independently of Bash# executable syntax. Its closed multilingual
+glossary binds application-specific meanings; it does not enumerate all words
+allowed by dhnt's word-formation rules.
 
 ```
 [Layer 0]  free prose in any natural language    (author-facing)

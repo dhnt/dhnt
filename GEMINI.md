@@ -12,6 +12,22 @@
     - **L2**: Typed AST keyed by dhnt identifiers.
 4.  **Reference CLI (`cmd/dhnt`)**: Tools for exporting, running, normalising, verifying, and orchestrating skills.
 
+### Vocabulary and syntax boundary
+
+dhnt-lang defines canonical vocabulary and word rules; Bash# defines executable
+grammar/syntax. Conventional forms follow the current dhnt rules: `ls` expands
+to `liso` without a registry of pairs. Canonical forms remain strict; multiple
+alternative spellings can share an expansion. Do not require one preferred
+alias or describe the distinction as written/spoken forms.
+
+Retain original spelling when exact source reproduction matters. Rule-derived
+spelling equivalence is separate from meaning and execution binding. Preserve
+encoder behavior, canonical Skill-CNL AST identifiers, serialization and
+hashes. Its closed glossary is application-specific, not an exhaustive dhnt
+vocabulary. Do not rewrite source strings, flags or paths.
+Homonyms sharing a canonical form are permitted; context determines the sense.
+Existing runtime name resolution and glossary duplicate checks remain intact.
+
 ## Building and Running
 The project requires **Go 1.22+**.
 

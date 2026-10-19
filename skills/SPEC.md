@@ -42,6 +42,22 @@ single inversion is what lets a weak model and a strong model converge.
 
 ## 1. Relationship to the existing layers
 
+**Vocabulary / syntax boundary.** [dhnt's spelling rules](../dhnt.md#canonical-words-and-rule-derived-alternative-spellings)
+relate conventional forms to canonical words, such as `ls` to `liso`,
+without a registry of pairs. Bash# owns executable source grammar. This
+document continues to define the existing Skill-CNL serialization grammar;
+it is not a Bash# grammar or a specification of Bash# command dispatch.
+
+Rule-derived spelling equivalence does not change AST identifiers, glossary
+label semantics, L1.5 bytes, execution bindings, or `Identity` hashes. The
+existing closed glossary serves this procedure language's meanings and
+bindings; it is not an exhaustive dictionary required by dhnt word rules.
+Spelling equivalence alone does not establish one meaning in every context
+or recover the original source spelling. Homonyms are allowed at the language
+level; this package's explicit bindings and duplicate checks retain their
+existing behavior. Do not insert alternative spellings
+into canonical AST fields or change the serializer to emit them.
+
 This package already defines (do not rebuild):
 
 ```

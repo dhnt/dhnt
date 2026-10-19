@@ -11,6 +11,17 @@ Two things ship together:
 
 The spec is the authority; the Go module is the machine-checkable instance. When the encoder and the spec disagree, that is a bug to surface, not to paper over.
 
+dhnt-lang defines canonical vocabulary and word formation; Bash# defines
+executable grammar/syntax. Alternative spellings derive from the current
+dhnt rules: `ls` expands to `liso` without pair registration. Canonical rules
+remain strict; there is no exhaustive registry or single preferred alias.
+This is not a written/spoken split. Expansion can be many-to-one, so preserve
+original spelling when needed and distinguish equivalence from meaning and
+execution binding. Preserve encoder APIs, canonical skill identifiers,
+serialization and hashes; do not rewrite source strings, flags or paths.
+Homonyms may share a canonical form; context resolves meaning. Preserve
+existing runtime name resolution and glossary duplicate checks.
+
 ## Commands
 
 ```sh
@@ -31,7 +42,7 @@ The `dhnt` CLI (`cmd/dhnt/main.go`) has subcommands: `export`, `run`, `normalise
 
 ## Architecture: the four-layer pipeline
 
-The whole system is one pipeline from natural-language prose down to a content-addressed canonical form and back up to a typed, executable AST. Understand this before editing `skills/`:
+The existing Skill-CNL package uses a pipeline from natural-language prose down to a content-addressed canonical form and back up to a typed, executable AST. This serialization format is distinct from Bash# source grammar. Understand this before editing `skills/`:
 
 ```
 [Layer 0]  free prose, any natural language        (author-facing; LLM normaliser, mostly out of scope)
