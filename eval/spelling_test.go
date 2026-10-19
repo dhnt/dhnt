@@ -155,10 +155,11 @@ func stubSpellingModel(t *testing.T) func(string) (string, error) {
 	}
 }
 
-// The canonical arm is fully green: exact surface, equivalent,
+// Both arms are fully green with the S2 parser: exact surface, equivalent,
 // parser-accepted, correct, preserving. The conventional arm carries its own
-// exact surface and is spelling-equivalent (by design) but today's parser
-// rejects it — the measured gap S2 will close.
+// exact surface and is spelling-equivalent (by design), and the S2 parser
+// accepts the rule-derived alternative spellings, so the stub run shows
+// the conventional arm 8/8 on every column — the expected result.
 func TestSpelling_PairedStubRun(t *testing.T) {
 	tasks := SpellingTasks()
 	verdicts, sum, err := RunSpelling(stubSpellingModel(t), tasks)
@@ -188,16 +189,14 @@ func TestSpelling_PairedStubRun(t *testing.T) {
 		if !conv.Preserved {
 			t.Errorf("conventional %s should preserve literals: %+v", task.Name, conv)
 		}
-		if task.Name == "aaa-as-is" {
-			// Already-canonical form: both arms agree end to end.
-			if !conv.Pass() {
-				t.Errorf("conventional aaa-as-is should be fully green: %+v", conv)
-			}
-			continue
-		}
-		if conv.Parses || conv.Correct {
-			t.Errorf("conventional %s unexpectedly accepted by today's parser: %+v",
+		// With the S2 parser both arms parse and are correct for every
+		// stub task (aaa-as-is included: both arms agree end to end).
+		if !conv.Parses || !conv.Correct {
+			t.Errorf("conventional %s should parse and be correct with the S2 parser: %+v",
 				task.Name, conv)
+		}
+		if !conv.Pass() {
+			t.Errorf("conventional %s should be fully green: %+v", task.Name, conv)
 		}
 	}
 	if sum.Canonical.Tasks != len(tasks) || sum.Conventional.Tasks != len(tasks) {
@@ -214,8 +213,11 @@ func TestSpelling_PairedStubRun(t *testing.T) {
 	if sum.Conventional.Equivalent != len(tasks) {
 		t.Errorf("conventional summary should be fully equivalent: %+v", sum.Conventional)
 	}
-	if sum.Conventional.Parses != 1 || sum.Conventional.Correct != 1 {
-		t.Errorf("only aaa-as-is should parse today: %+v", sum.Conventional)
+	if sum.Conventional.Parses != len(tasks) || sum.Conventional.Correct != len(tasks) {
+		t.Errorf("conventional summary should fully parse and be correct with the S2 parser: %+v", sum.Conventional)
+	}
+	if sum.Conventional.Preserved != len(tasks) {
+		t.Errorf("conventional summary should fully preserve literals: %+v", sum.Conventional)
 	}
 	t.Logf("\n%s", RenderSpellingMarkdown(verdicts, sum))
 }

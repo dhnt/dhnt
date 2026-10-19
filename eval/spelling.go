@@ -28,11 +28,12 @@ package eval
 //	(d) semantic correctness: the parsed AST has the task's expected Identity;
 //	(e) preservation: arguments, flags, paths and quoted text survive exactly.
 //
-// Column (c) is a MEASURED column, not a dependency: a parallel story (S2)
-// is making ParseDhnt accept conventional spellings on input. This harness
-// calls today's parser as-is, so arm B reads Parses=false/Correct=false
-// today and the same harness shows the gap closing once S2 lands — no
-// harness change needed.
+// Column (c) is a MEASURED column, not a dependency: story S2 made
+// ParseDhnt accept rule-derived conventional spellings on input, so with
+// the S2 parser arm B reads Parses=true/Correct=true on equivalent input.
+// Column (c) — like column (b) — stays measured: both arms are expected to
+// pass every column on the stub transcripts, and the harness keeps scoring
+// each column separately.
 //
 // Naming note: Sprint 476 tracks this as "E5". In this package the paper's
 // E5 (interop, RunInterop in experiments.go) already holds that slot, so the

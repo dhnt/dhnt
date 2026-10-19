@@ -43,9 +43,10 @@ nonce word (`wug`), a homonym case (`liso` as predicate vs step), `aaa`
 (canonical as-is), the `ls`/`cd` basics, and a rewriting task with literal
 preservation.
 
-Column (c) is measured, not assumed: against today's parser arm B reads
-`parses: no`, and the same harness shows the gap closing once the parser
-accepts conventional spellings (parallel story S2) — no harness change.
+Column (c) is measured, not assumed: with the S2 parser (which accepts
+rule-derived conventional spellings on input) arm B reads `parses: yes`,
+and column (b) is likewise expected to pass for both arms. Both columns
+stay measured — the harness keeps scoring every column separately.
 Column (a) is what tells the arms apart when the encoder accepts both: arm A
 answering `ls` fails surface but still passes equivalence.
 
