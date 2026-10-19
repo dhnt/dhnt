@@ -55,8 +55,9 @@ func SpellingTasks() []SpellingTask {
 			PromptConventional: "Spelling arm: conventional.\nTask: list-ls.\n" +
 				"Author a dhnt skill named `taso` with one listing step named `ls` " +
 				"(conventional spelling, accepted as-is) invoking primitive `loge`. " + shape,
-			Intended: []string{"liso"},
-			Expected: listSkill,
+			Intended:     []string{"liso"},
+			Conventional: []string{"ls"},
+			Expected:     listSkill,
 		},
 		{
 			Name: "shell-bash",
@@ -66,8 +67,9 @@ func SpellingTasks() []SpellingTask {
 			PromptConventional: "Spelling arm: conventional.\nTask: shell-bash.\n" +
 				"Author a dhnt skill named `taso` with one shell step named `bash` " +
 				"(conventional spelling, accepted as-is) invoking primitive `loge`. " + shape,
-			Intended: []string{"basohe"},
-			Expected: shellSkill,
+			Intended:     []string{"basohe"},
+			Conventional: []string{"bash"},
+			Expected:     shellSkill,
 		},
 		{
 			// Shared expansion: the contraction `bsh` expands to `basohe`
@@ -79,8 +81,9 @@ func SpellingTasks() []SpellingTask {
 			PromptConventional: "Spelling arm: conventional.\nTask: shell-bsh.\n" +
 				"Author a dhnt skill named `taso` with one shell step named `bsh` " +
 				"(conventional contraction, accepted as-is) invoking primitive `loge`. " + shape,
-			Intended: []string{"basohe"},
-			Expected: shellSkill,
+			Intended:     []string{"basohe"},
+			Conventional: []string{"bsh"},
+			Expected:     shellSkill,
 		},
 		{
 			// Unseen word: `wug` has no glossary entry; the encoder still
@@ -92,8 +95,9 @@ func SpellingTasks() []SpellingTask {
 			PromptConventional: "Spelling arm: conventional.\nTask: unseen-wug.\n" +
 				"Author a dhnt skill named `taso` with one step named `wug` " +
 				"(the nonce word as-is) invoking primitive `loge`. " + shape,
-			Intended: []string{"wuge"},
-			Expected: unseenSkill,
+			Intended:     []string{"wuge"},
+			Conventional: []string{"wug"},
+			Expected:     unseenSkill,
 		},
 		{
 			// Homonym: the surface form `liso` here is a contract predicate
@@ -111,8 +115,9 @@ func SpellingTasks() []SpellingTask {
 				"with predicate `ls` (conventional spelling; here it means " +
 				"\"the listing is sorted\", not the listing step) and one leaf step " +
 				"`alile` invoking primitive `loge`. " + shape,
-			Intended: []string{"liso"},
-			Expected: homonymSkill,
+			Intended:     []string{"liso"},
+			Conventional: []string{"ls"},
+			Expected:     homonymSkill,
 		},
 		{
 			// Accepted canonical as-is: `aaa` is already three vowel
@@ -126,8 +131,9 @@ func SpellingTasks() []SpellingTask {
 				"Author a dhnt skill named `aaa` (already canonical: three vowel " +
 				"syllables a/a/a, accepted as-is) with one leaf step `alile` " +
 				"invoking primitive `loge`. " + shape,
-			Intended: []string{"aaa"},
-			Expected: aaaSkill,
+			Intended:     []string{"aaa"},
+			Conventional: []string{"aaa"},
+			Expected:     aaaSkill,
 		},
 		{
 			Name: "cd-cada",
@@ -137,8 +143,9 @@ func SpellingTasks() []SpellingTask {
 			PromptConventional: "Spelling arm: conventional.\nTask: cd-cada.\n" +
 				"Author a dhnt skill named `taso` with one step named `cd` " +
 				"(conventional spelling, accepted as-is) invoking primitive `loge`. " + shape,
-			Intended: []string{"cada"},
-			Expected: cdSkill,
+			Intended:     []string{"cada"},
+			Conventional: []string{"cd"},
+			Expected:     cdSkill,
 		},
 		{
 			// Rewriting task: re-spell a conventional draft without touching
@@ -159,9 +166,10 @@ func SpellingTasks() []SpellingTask {
 				"sokilili taso sotepo ls loge fini fini\n" +
 				"Put the rewritten skill in a ``` fenced block, then an `args:` line " +
 				"carrying the flag, path, and quoted text unchanged.",
-			Intended: []string{"liso"},
-			Expected: listSkill,
-			Preserve: []string{"-l", "./notes/ls", `"My Files"`},
+			Intended:     []string{"liso"},
+			Conventional: []string{"ls"},
+			Expected:     listSkill,
+			Preserve:     []string{"-l", "./notes/ls", `"My Files"`},
 		},
 	}
 }

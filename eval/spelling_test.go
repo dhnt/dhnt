@@ -34,10 +34,51 @@ func TestSpelling_Equivalence(t *testing.T) {
 		{"sotepo loge fini", []string{"liso"}, false}, // intended form absent
 	}
 	for _, tc := range cases {
-		if got := CheckSpellingCompliance(tc.output, tc.intended); got != tc.want {
-			t.Errorf("CheckSpellingCompliance(%q, %v) = %v, want %v",
+		if got := CheckSpellingEquivalence(tc.output, tc.intended); got != tc.want {
+			t.Errorf("CheckSpellingEquivalence(%q, %v) = %v, want %v",
 				tc.output, tc.intended, got, tc.want)
 		}
+	}
+}
+
+// Surface is arm-specific and exact: arm A (canonical) fails when the model
+// writes the conventional form, even though equivalence still holds.
+func TestSpelling_Surface(t *testing.T) {
+	cases := []struct {
+		output   string
+		expected []string
+		want     bool
+	}{
+		{"sotepo liso loge", []string{"liso"}, true},
+		{"sotepo ls loge", []string{"liso"}, false}, // wrong surface, still equivalent
+		{"sotepo ls loge", []string{"ls"}, true},
+		{"sotepo liso loge", []string{"ls"}, false},
+		{"sotepo LISO loge", []string{"liso"}, true}, // case-insensitive exact
+		{"sotepo bsh loge", []string{"bsh"}, true},
+		{"sotepo bash loge", []string{"bsh"}, false}, // shared expansion, other surface
+		{"sokilili AAA sotepo alile loge fini fini", []string{"aaa"}, true},
+		{"sotepo loge fini", []string{"liso"}, false},
+	}
+	for _, tc := range cases {
+		if got := CheckSurfaceSpelling(tc.output, tc.expected); got != tc.want {
+			t.Errorf("CheckSurfaceSpelling(%q, %v) = %v, want %v",
+				tc.output, tc.expected, got, tc.want)
+		}
+	}
+}
+
+// The steering case: arm A asked for liso answers with ls — surface fails,
+// equivalence passes. The columns tell the arms apart.
+func TestSpelling_SurfaceVsEquivalent(t *testing.T) {
+	out := "sokilili taso sotepo ls loge fini fini"
+	if !CheckSpellingEquivalence(out, []string{"liso"}) {
+		t.Fatalf("ls should be equivalent to liso")
+	}
+	if CheckSurfaceSpelling(out, []string{"liso"}) {
+		t.Fatalf("ls should fail canonical surface liso")
+	}
+	if !CheckSurfaceSpelling(out, []string{"ls"}) {
+		t.Fatalf("ls should pass conventional surface ls")
 	}
 }
 
@@ -114,9 +155,10 @@ func stubSpellingModel(t *testing.T) func(string) (string, error) {
 	}
 }
 
-// The canonical arm is fully green: compliant, parser-accepted, correct,
-// preserving. The conventional arm is spelling-compliant (equivalence holds
-// by design) but today's parser rejects it — the measured gap S2 will close.
+// The canonical arm is fully green: exact surface, equivalent,
+// parser-accepted, correct, preserving. The conventional arm carries its own
+// exact surface and is spelling-equivalent (by design) but today's parser
+// rejects it — the measured gap S2 will close.
 func TestSpelling_PairedStubRun(t *testing.T) {
 	tasks := SpellingTasks()
 	verdicts, sum, err := RunSpelling(stubSpellingModel(t), tasks)
@@ -137,8 +179,11 @@ func TestSpelling_PairedStubRun(t *testing.T) {
 				task.Name, canon, canon.ParseErr)
 		}
 		conv := byKey[task.Name+"/"+string(ArmConventional)]
-		if !conv.Compliant {
-			t.Errorf("conventional %s should be spelling-compliant: %+v", task.Name, conv)
+		if !conv.Surface {
+			t.Errorf("conventional %s should carry its exact surface: %+v", task.Name, conv)
+		}
+		if !conv.Equivalent {
+			t.Errorf("conventional %s should be spelling-equivalent: %+v", task.Name, conv)
 		}
 		if !conv.Preserved {
 			t.Errorf("conventional %s should preserve literals: %+v", task.Name, conv)
@@ -158,17 +203,55 @@ func TestSpelling_PairedStubRun(t *testing.T) {
 	if sum.Canonical.Tasks != len(tasks) || sum.Conventional.Tasks != len(tasks) {
 		t.Errorf("summary task counts wrong: %+v", sum)
 	}
-	if sum.Canonical.Compliant != len(tasks) || sum.Canonical.Parses != len(tasks) ||
+	if sum.Canonical.Surface != len(tasks) || sum.Canonical.Equivalent != len(tasks) ||
+		sum.Canonical.Parses != len(tasks) ||
 		sum.Canonical.Correct != len(tasks) || sum.Canonical.Preserved != len(tasks) {
 		t.Errorf("canonical summary should be perfect: %+v", sum.Canonical)
 	}
-	if sum.Conventional.Compliant != len(tasks) {
-		t.Errorf("conventional summary should be fully compliant: %+v", sum.Conventional)
+	if sum.Conventional.Surface != len(tasks) {
+		t.Errorf("conventional summary should be fully on-surface: %+v", sum.Conventional)
+	}
+	if sum.Conventional.Equivalent != len(tasks) {
+		t.Errorf("conventional summary should be fully equivalent: %+v", sum.Conventional)
 	}
 	if sum.Conventional.Parses != 1 || sum.Conventional.Correct != 1 {
 		t.Errorf("only aaa-as-is should parse today: %+v", sum.Conventional)
 	}
 	t.Logf("\n%s", RenderSpellingMarkdown(verdicts, sum))
+}
+
+// A canonical-arm answer in the conventional surface (ls for liso) fails
+// surface but passes equivalence — and so fails Pass. This is the column
+// split the rework asked for: the arms are told apart even when the
+// encoder accepts both.
+func TestSpelling_WrongSurfaceArmA(t *testing.T) {
+	tasks := SpellingTasks()[:1] // list-ls: canonical liso, conventional ls
+	model := func(prompt string) (string, error) {
+		return "sokilili taso sotepo ls loge fini fini", nil
+	}
+	verdicts, _, err := RunSpelling(model, tasks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(verdicts) != 2 {
+		t.Fatalf("got %d verdicts, want 2", len(verdicts))
+	}
+	canon, conv := verdicts[0], verdicts[1]
+	if canon.Arm != ArmCanonical || conv.Arm != ArmConventional {
+		t.Fatalf("unexpected arm order: %+v", verdicts)
+	}
+	if canon.Surface {
+		t.Errorf("canonical arm answering ls should fail surface: %+v", canon)
+	}
+	if !canon.Equivalent {
+		t.Errorf("canonical arm answering ls should pass equivalence: %+v", canon)
+	}
+	if canon.Pass() {
+		t.Errorf("canonical arm answering ls should not pass overall: %+v", canon)
+	}
+	if !conv.Surface || !conv.Equivalent {
+		t.Errorf("conventional arm answering ls should be on-surface and equivalent: %+v", conv)
+	}
 }
 
 // A model failure is recorded on that arm's verdict; the paired run still

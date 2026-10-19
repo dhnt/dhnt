@@ -23,7 +23,7 @@ import (
 // model's completion is read from its stdout. Example:
 //
 //	go test ./eval/ -run TestSpellingLiveSmoke -spelling-live-cmd \
-//	  "gemini --model gemini-2.0-flash" -v
+//	  "my-model-cli complete" -v
 //
 // Any wrapper that reads a prompt from stdin and prints a completion to
 // stdout works (a shell pipeline, a subscription-model CLI, ...). This test
