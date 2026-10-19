@@ -223,7 +223,11 @@ dhnt has 5 vowel characters and 21 consonant characters and a total of 110 sylla
 
 A word is a sequence of one or more syllables and stress always falls on the second last.
 
-There are no clusters of vowels or consonants. In writing however, syllables may be contracted per the following rules:
+There are no clusters of vowels or consonants. A vowel letter written after
+another vowel does not form a cluster or diphthong with it: it is a syllable
+of its own. For example, _you_ is the two syllables _yo·u_, stressed on _yo_
+(the second last), unlike the single-syllable English word. In writing,
+syllables may also be contracted per the following rules:
 
 - Consonant character y between two vowels can be omitted.
 - Vowel character in a consonant-vowel syllable from the alphabet table can be omitted if it is followed by a consonant or is the last in a word.
@@ -483,11 +487,9 @@ or changing Go APIs, parser behavior, command dispatch, or content hashes.
   labels for Skill-CNL. Its closed vocabulary does not define the set of all
   words admitted by dhnt's productive word rules. Its label normalization,
   duplicate checks, and the catalog's alias behavior remain unchanged.
-- The historical "no clusters of vowels" sentence above and the current
-  encoder's acceptance of adjacent vowel-only syllables (for example,
-  `you`) are a pre-existing specification/implementation discrepancy.
-  Spelling equivalence does not resolve it or change either rule; phonotactic
-  reconciliation needs a separate change. The worked pairs here avoid it.
+- A vowel written after another vowel is a separate syllable, never a
+  cluster, so the encoder's output for words such as `you` (`yo·u`) conforms
+  to the [Grammar](#grammar) section; no encoder or hash change is involved.
 
 Bash# token integration and any Skill-CNL migration require separate
 implementation work. An exhaustive vocabulary registry is not required or
