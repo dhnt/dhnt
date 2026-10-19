@@ -19,8 +19,15 @@ import (
 // The input must be strictly [a-z] characters with words separated
 // by ASCII whitespace. Any other character is rejected.
 //
+// Every word token is read by its rule-derived expansion
+// N(token) = dhnt.EncodeWord(token) (see spelling.go): `skill ls fin`
+// reads as `sokilili liso fini`. The AST holds only canonical forms, so
+// LineariseDhnt(ParseDhnt(x)) is the canonical text and Identity is the
+// same whichever spelling was written.
+//
 // Validity is exactly "this transpiles": ParseDhnt accepts iff the
-// canonical encoder can have produced this input from some Skill.
+// input's canonical expansion is something the encoder can have
+// produced from some Skill.
 func ParseDhnt(src string) (Skill, error) {
 	if err := validateLayer15Charset(src); err != nil {
 		return Skill{}, err
@@ -68,8 +75,8 @@ func (p *parser) expect(literal string) error {
 	if !ok {
 		return fmt.Errorf("skills: expected %q, got end-of-input", literal)
 	}
-	if tok != literal {
-		return fmt.Errorf("skills: expected %q at token %d, got %q", literal, p.pos-1, tok)
+	if canonWord(tok) != literal {
+		return fmt.Errorf("skills: expected %q at token %d, got %s", literal, p.pos-1, spelled(tok))
 	}
 	return nil
 }
@@ -82,6 +89,7 @@ func (p *parser) parseSkill() (Skill, error) {
 	if !ok {
 		return Skill{}, fmt.Errorf("skills: expected skill name after %q", keywordSkill)
 	}
+	name = canonWord(name)
 	if !dhnt.IsCanonical(name) {
 		return Skill{}, fmt.Errorf("skills: skill name %q is not canonical dhnt", name)
 	}
@@ -91,7 +99,11 @@ func (p *parser) parseSkill() (Skill, error) {
 		if !ok {
 			return Skill{}, fmt.Errorf("skills: expected %q, got end-of-input", keywordEnd)
 		}
-		switch tok {
+		kw, err := resolveSense("token in skill body", tok, skillBodySenses)
+		if err != nil {
+			return Skill{}, fmt.Errorf("skills: %w", err)
+		}
+		switch kw.canonical {
 		case keywordEnd:
 			p.pos++
 			return skill, nil
@@ -132,7 +144,7 @@ func (p *parser) parseSkill() (Skill, error) {
 			}
 			skill.OnFail = pol
 		default:
-			return Skill{}, fmt.Errorf("skills: unexpected token %q in skill body", tok)
+			return Skill{}, fmt.Errorf("skills: unexpected token %s in skill body", spelled(tok))
 		}
 	}
 }
@@ -147,6 +159,7 @@ func (p *parser) parseNeeds() ([]string, error) {
 		if !ok {
 			return nil, fmt.Errorf("skills: expected %q in needs block", keywordEnd)
 		}
+		tok = canonWord(tok)
 		if tok == keywordEnd {
 			break
 		}
@@ -177,12 +190,16 @@ func (p *parser) parseEffectCap() ([]Effect, error) {
 		if !ok {
 			return nil, fmt.Errorf("skills: expected %q in effect block", keywordEnd)
 		}
-		if tok == keywordEnd {
+		if canonWord(tok) == keywordEnd {
 			break
 		}
-		e, ok := effectByDhntAtom(tok)
+		atom, err := resolveSense("effect atom", tok, effectSenses())
+		if err != nil {
+			return nil, fmt.Errorf("skills: %w", err)
+		}
+		e, ok := effectByDhntAtom(atom.canonical)
 		if !ok {
-			return nil, fmt.Errorf("skills: %q is not a known effect atom", tok)
+			return nil, fmt.Errorf("skills: %s is not a known effect atom", spelled(tok))
 		}
 		effs = append(effs, e)
 	}
@@ -201,15 +218,16 @@ func (p *parser) parseArgsUntil(who string, stops map[string]bool) ([]Arg, error
 		if !ok {
 			return nil, fmt.Errorf("skills: %s: unexpected end-of-input", who)
 		}
-		if stops[tok] {
+		if stops[canonWord(tok)] {
 			return args, nil
 		}
 		p.pos++ // consume name
+		tok = canonWord(tok)
 		if !dhnt.IsCanonical(tok) {
 			return nil, fmt.Errorf("skills: %s arg name %q is not canonical dhnt", who, tok)
 		}
 		valueTok, ok := p.next()
-		if !ok || stops[valueTok] {
+		if !ok || stops[canonWord(valueTok)] {
 			return nil, fmt.Errorf("skills: %s arg %q has no value", who, tok)
 		}
 		val, err := parseValue(valueTok)
@@ -229,10 +247,10 @@ func (p *parser) parseStepList(stops map[string]bool) ([]Step, error) {
 		if !ok {
 			return nil, fmt.Errorf("skills: unexpected end-of-input in step list")
 		}
-		if stops[tok] {
+		if stops[canonWord(tok)] {
 			return out, nil
 		}
-		switch tok {
+		switch canonWord(tok) {
 		case keywordStep:
 			st, err := p.parseStep()
 			if err != nil {
@@ -246,7 +264,7 @@ func (p *parser) parseStepList(stops map[string]bool) ([]Step, error) {
 			}
 			out = append(out, Step{Branch: br})
 		default:
-			return nil, fmt.Errorf("skills: unexpected token %q in step list", tok)
+			return nil, fmt.Errorf("skills: unexpected token %s in step list", spelled(tok))
 		}
 	}
 }
@@ -260,6 +278,7 @@ func (p *parser) parseBranch() (*Branch, error) {
 	if !ok {
 		return nil, fmt.Errorf("skills: expected predicate after %q", keywordWhen)
 	}
+	pred = canonWord(pred)
 	if !dhnt.IsCanonical(pred) {
 		return nil, fmt.Errorf("skills: branch condition %q is not canonical dhnt", pred)
 	}
@@ -277,7 +296,7 @@ func (p *parser) parseBranch() (*Branch, error) {
 	}
 	br.Then = then
 
-	if tok, ok := p.peek(); ok && tok == keywordElse {
+	if tok, ok := p.peek(); ok && canonWord(tok) == keywordElse {
 		p.pos++
 		els, err := p.parseStepList(map[string]bool{keywordEnd: true})
 		if err != nil {
@@ -313,7 +332,11 @@ func (p *parser) parseOnFail() (Policy, error) {
 
 // parsePolicyAtom maps a Layer 1.5 on-fail atom to a Policy.
 func parsePolicyAtom(tok string) (Policy, error) {
-	switch tok {
+	atom, err := resolveSense("on-fail policy", tok, policySenses)
+	if err != nil {
+		return 0, fmt.Errorf("skills: %w", err)
+	}
+	switch atom.canonical {
 	case policyAbort:
 		return PolicyAbort, nil
 	case policyRetry:
@@ -327,7 +350,11 @@ func parsePolicyAtom(tok string) (Policy, error) {
 
 // parseLatitudeAtom maps a Layer 1.5 latitude atom to a Latitude.
 func parseLatitudeAtom(tok string) (Latitude, error) {
-	switch tok {
+	atom, err := resolveSense("latitude", tok, latitudeSenses)
+	if err != nil {
+		return 0, err
+	}
+	switch atom.canonical {
 	case latExact:
 		return LatExact, nil
 	case latJudge:
@@ -351,6 +378,7 @@ func (p *parser) parseEnsure() (Check, error) {
 	if !ok {
 		return Check{}, fmt.Errorf("skills: expected predicate after %q", keywordEnsure)
 	}
+	pred = canonWord(pred)
 	if !dhnt.IsCanonical(pred) {
 		return Check{}, fmt.Errorf("skills: contract predicate %q is not canonical dhnt", pred)
 	}
@@ -360,6 +388,7 @@ func (p *parser) parseEnsure() (Check, error) {
 		if !ok {
 			return Check{}, fmt.Errorf("skills: contract %q expected %q", pred, keywordEnd)
 		}
+		tok = canonWord(tok)
 		if tok == keywordEnd {
 			break
 		}
@@ -388,6 +417,7 @@ func (p *parser) parseStep() (Step, error) {
 	if !ok {
 		return Step{}, fmt.Errorf("skills: expected step name after %q", keywordStep)
 	}
+	name = canonWord(name)
 	if !dhnt.IsCanonical(name) {
 		return Step{}, fmt.Errorf("skills: step name %q is not canonical dhnt", name)
 	}
@@ -395,6 +425,7 @@ func (p *parser) parseStep() (Step, error) {
 	if !ok {
 		return Step{}, fmt.Errorf("skills: step %q expected primitive name", name)
 	}
+	primitive = canonWord(primitive)
 	if !dhnt.IsCanonical(primitive) {
 		return Step{}, fmt.Errorf("skills: step %q primitive %q is not canonical dhnt", name, primitive)
 	}
@@ -405,6 +436,7 @@ func (p *parser) parseStep() (Step, error) {
 		if !ok {
 			return Step{}, fmt.Errorf("skills: step %q expected %q", name, keywordEnd)
 		}
+		tok = canonWord(tok)
 		if tok == keywordEnd {
 			break
 		}
@@ -444,7 +476,8 @@ func (p *parser) parseStep() (Step, error) {
 
 // parseValue interprets a single value token. A token is a numeral if
 // it starts with "ju" and the body decodes cleanly per the dhnt
-// numeral rules; otherwise it is a canonical-dhnt reference.
+// numeral rules (read as written, exactly as before); otherwise it is a
+// reference to the token's canonical expansion N(tok).
 func parseValue(tok string) (Expr, error) {
 	if strings.HasPrefix(tok, "ju") && len(tok) > 2 {
 		if n, err := dhnt.DecodeDecimal(tok); err == nil {
@@ -452,6 +485,7 @@ func parseValue(tok string) (Expr, error) {
 		}
 		// fall through to ref interpretation
 	}
+	tok = canonWord(tok)
 	if !dhnt.IsCanonical(tok) {
 		return Expr{}, fmt.Errorf("value %q is not canonical dhnt", tok)
 	}
