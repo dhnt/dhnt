@@ -149,7 +149,11 @@ A four-layer pipeline for authoring deterministic skill specifications
 that can be written and read in any natural language.
 
 This is the existing Skill-CNL format and its serialization grammar. It remains
-supported independently of Bash# executable syntax. Its closed multilingual
+supported independently of Bash# executable syntax. "Skill" here means a
+specification (Skill-CNL) or a markdown instruction (the catalog above); the
+executable form is a [Bash#](https://github.com/bashsharp/bashsharp) file,
+where one file is both script and skill. Skill-CNL is not a second
+executable syntax. Its closed multilingual
 glossary binds application-specific meanings; it does not enumerate all words
 allowed by dhnt's word-formation rules.
 
